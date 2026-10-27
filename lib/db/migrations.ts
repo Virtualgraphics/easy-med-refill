@@ -183,6 +183,18 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX idx_shortage_matches_medication ON shortage_matches(medication_id);
     `,
   },
+  {
+    version: 2,
+    name: 'app-settings',
+    sql: `
+      -- Small key/value store for app preferences (reminders on/off etc.).
+      CREATE TABLE app_settings (
+        key        TEXT PRIMARY KEY NOT NULL,
+        value      TEXT,
+        updated_at TEXT NOT NULL
+      );
+    `,
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1].version;

@@ -54,6 +54,31 @@ describe('migration list', () => {
   });
 });
 
+describe('incremental migration', () => {
+  it('upgrades a v1 database to the latest version without touching v1 data', () => {
+    const db = new DatabaseSync(':memory:');
+    db.exec('PRAGMA foreign_keys = ON;');
+    const [v1] = migrations;
+    db.exec('BEGIN;');
+    db.exec(v1.sql);
+    db.exec('PRAGMA user_version = 1;');
+    db.exec('COMMIT;');
+    seedProfileAndProvider(db);
+
+    for (const m of pendingMigrations(1)) {
+      db.exec('BEGIN;');
+      db.exec(m.sql);
+      db.exec(`PRAGMA user_version = ${m.version};`);
+      db.exec('COMMIT;');
+    }
+
+    expect(db.prepare('PRAGMA user_version;').get()).toEqual({ user_version: LATEST_SCHEMA_VERSION });
+    expect(db.prepare('SELECT count(*) AS n FROM profiles').get()).toEqual({ n: 1 });
+    expect(db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_settings'`).get()).toEqual({ name: 'app_settings' });
+    db.close();
+  });
+});
+
 describe('schema v1', () => {
   let db: DatabaseSync;
 
@@ -69,6 +94,7 @@ describe('schema v1', () => {
     expect(db.prepare('PRAGMA user_version;').get()).toEqual({ user_version: LATEST_SCHEMA_VERSION });
     const rows = db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`).all() as { name: string }[];
     expect(rows.map((r) => r.name)).toEqual([
+      'app_settings',
       'dose_schedules',
       'medications',
       'packs',

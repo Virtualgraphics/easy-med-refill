@@ -1,4 +1,12 @@
 export { DATABASE_NAME, DATABASE_OPTIONS, LATEST_SCHEMA_VERSION, initializeDatabase } from './database';
 export { migrations, pendingMigrations } from './migrations';
 export type { Migration } from './migrations';
+export type { DbClient, RunResult, SqlValue } from './client';
+export { useDb } from './useDb';
+export { newId } from './ids';
+export { addDays, daysBetween, nowIso, todayIso } from './clock';
+export { formatDate, formatUnits, isIsoDate, parseNumber } from './format';
+export { seedDemoData } from './seed';
+export { resetAllData } from './maintenance';
+export * from './repo';
 export * from './types';

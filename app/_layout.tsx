@@ -6,24 +6,25 @@ import { SQLiteProvider } from 'expo-sqlite';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import "../global.css";
+import '../global.css';
 
-
-import { useColorScheme } from '../components/useColorScheme';
-import { DATABASE_NAME, DATABASE_OPTIONS, initializeDatabase } from '../lib/db';
+import { useColorScheme } from '@/components/useColorScheme';
+import { DATABASE_NAME, DATABASE_OPTIONS, initializeDatabase } from '@/lib/db';
+import { configureNotifications } from '@/lib/notifications';
+import { ProfileProvider } from '@/lib/profile/ProfileContext';
 
 export {
   // Catch any errors thrown by the Layout component.
-  ErrorBoundary
+  ErrorBoundary,
 } from 'expo-router';
 
 export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
   initialRouteName: '(tabs)',
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+configureNotifications();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -54,12 +55,26 @@ function RootLayoutNav() {
 
   return (
     <SQLiteProvider databaseName={DATABASE_NAME} options={DATABASE_OPTIONS} onInit={initializeDatabase}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
-      </ThemeProvider>
+      <ProfileProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: '#0B5CAB' },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: '600' },
+              headerBackButtonDisplayMode: 'minimal',
+            }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="medication/new" options={{ title: 'New medication' }} />
+            <Stack.Screen name="medication/[id]/index" options={{ title: 'Medication' }} />
+            <Stack.Screen name="medication/[id]/edit" options={{ title: 'Edit medication' }} />
+            <Stack.Screen name="medication/[id]/dose" options={{ title: 'Prescribed dose' }} />
+            <Stack.Screen name="medication/[id]/pack" options={{ title: 'Add pack' }} />
+            <Stack.Screen name="medication/[id]/prescription" options={{ title: 'Add prescription' }} />
+            <Stack.Screen name="provider/new" options={{ title: 'New supplier' }} />
+          </Stack>
+        </ThemeProvider>
+      </ProfileProvider>
     </SQLiteProvider>
   );
 }
