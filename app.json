@@ -41,7 +41,13 @@
           "useSQLCipher": true
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Easy MedRefill uses the camera only to read eMediplan QR codes and the codes on medicine packs."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

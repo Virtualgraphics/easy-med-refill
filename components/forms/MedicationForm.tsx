@@ -19,6 +19,8 @@ export interface MedicationFormValues {
 
 interface MedicationFormProps {
   initial?: MedicationRow;
+  /** Prefilled values for a new medication, e.g. a scanned GTIN. */
+  defaults?: Partial<MedicationFormValues>;
   providers: ProviderRow[];
   submitLabel: string;
   onSubmit: (values: MedicationFormValues) => Promise<void>;
@@ -27,12 +29,12 @@ interface MedicationFormProps {
 const orEmpty = (v: string | null | undefined) => v ?? '';
 const orNull = (v: string) => (v.trim() === '' ? null : v.trim());
 
-export function MedicationForm({ initial, providers, submitLabel, onSubmit }: MedicationFormProps) {
-  const [name, setName] = useState(orEmpty(initial?.name));
+export function MedicationForm({ initial, defaults, providers, submitLabel, onSubmit }: MedicationFormProps) {
+  const [name, setName] = useState(orEmpty(initial?.name ?? defaults?.name));
   const [activeIngredient, setActiveIngredient] = useState(orEmpty(initial?.active_ingredient));
   const [strength, setStrength] = useState(orEmpty(initial?.strength));
   const [form, setForm] = useState(orEmpty(initial?.form));
-  const [gtin, setGtin] = useState(orEmpty(initial?.gtin));
+  const [gtin, setGtin] = useState(orEmpty(initial?.gtin ?? defaults?.gtin));
   const [pharmacode, setPharmacode] = useState(orEmpty(initial?.pharmacode));
   const [isCritical, setIsCritical] = useState(initial?.is_critical === 1);
   const [buffer, setBuffer] = useState(String(initial?.safety_buffer_days ?? defaultSafetyBufferDays(false)));

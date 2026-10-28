@@ -49,9 +49,14 @@ export default function MedicationsScreen() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <Pressable accessibilityRole="button" accessibilityLabel="Add medication" onPress={() => router.push('/medication/new')} hitSlop={8}>
-              <FontAwesome name="plus" size={22} color="#fff" style={{ marginRight: 16 }} />
-            </Pressable>
+            <View className="flex-row items-center">
+              <Pressable accessibilityRole="button" accessibilityLabel="Scan a code" onPress={() => router.push('/scan')} hitSlop={8}>
+                <FontAwesome name="qrcode" size={22} color="#fff" style={{ marginRight: 20 }} />
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Add medication" onPress={() => router.push('/medication/new')} hitSlop={8}>
+                <FontAwesome name="plus" size={22} color="#fff" style={{ marginRight: 16 }} />
+              </Pressable>
+            </View>
           ),
         }}
       />
@@ -82,8 +87,9 @@ export default function MedicationsScreen() {
               <Muted className="text-center">
                 Add your first medication, or load the anonymised demo list to explore the app.
               </Muted>
-              <Button title="Add medication" onPress={() => router.push('/medication/new')} />
-              <Button title="Load demo data" variant="secondary" onPress={loadDemo} loading={seeding} />
+              <Button title="Scan eMediplan or pack" onPress={() => router.push('/scan')} />
+              <Button title="Add medication manually" variant="secondary" onPress={() => router.push('/medication/new')} />
+              <Button title="Load demo data" variant="ghost" onPress={loadDemo} loading={seeding} />
             </View>
           }
         />

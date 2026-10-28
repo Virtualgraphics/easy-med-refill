@@ -2,7 +2,7 @@ import React from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 
 interface ScreenProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   /** Scrollable with padding; use for forms and detail pages. */
   scroll?: boolean;
 }

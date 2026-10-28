@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 
 import { MedicationForm } from '@/components/forms/MedicationForm';
@@ -8,6 +8,7 @@ import { useDbQuery } from '@/lib/hooks/useDbQuery';
 import { useProfile } from '@/lib/profile/ProfileContext';
 
 export default function NewMedicationScreen() {
+  const { gtin } = useLocalSearchParams<{ gtin?: string }>();
   const router = useRouter();
   const db = useDb();
   const { profile } = useProfile();
@@ -16,6 +17,7 @@ export default function NewMedicationScreen() {
   return (
     <Screen scroll>
       <MedicationForm
+        defaults={gtin ? { gtin } : undefined}
         providers={providers.data ?? []}
         submitLabel="Add medication"
         onSubmit={async (values) => {

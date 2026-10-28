@@ -2,12 +2,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
-import { Button, Card, Screen, TextField } from '@/components/ui';
+import { Button, Card, Muted, Screen, TextField } from '@/components/ui';
 import { addPack, getMedication, isIsoDate, parseNumber, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
 
 export default function AddPackScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; gtin?: string; batch?: string; expiry?: string }>();
+  const { id } = params;
   const router = useRouter();
   const db = useDb();
   const medication = useDbQuery((d) => getMedication(d, id), [id]);
@@ -15,9 +16,10 @@ export default function AddPackScreen() {
   const [size, setSize] = useState('');
   const [remaining, setRemaining] = useState('');
   const [remainingTouched, setRemainingTouched] = useState(false);
-  const [expiry, setExpiry] = useState('');
-  const [batch, setBatch] = useState('');
-  const [gtin, setGtin] = useState('');
+  const [expiry, setExpiry] = useState(params.expiry ?? '');
+  const [batch, setBatch] = useState(params.batch ?? '');
+  const [gtin, setGtin] = useState(params.gtin ?? '');
+  const scanned = Boolean(params.gtin);
   const [errors, setErrors] = useState<{ size?: string; remaining?: string; expiry?: string }>({});
   const [saving, setSaving] = useState(false);
 
@@ -58,6 +60,17 @@ export default function AddPackScreen() {
 
   return (
     <Screen scroll>
+      {scanned ? (
+        <Card>
+          <Muted>Batch and expiry were read from the pack code. Enter how many units the pack holds.</Muted>
+        </Card>
+      ) : (
+        <Button
+          title="Scan the pack code"
+          variant="secondary"
+          onPress={() => router.replace({ pathname: '/scan', params: { mode: 'pack', medicationId: id } })}
+        />
+      )}
       <Card className="gap-4">
         <View className="flex-row gap-3">
           <View className="flex-1">
