@@ -195,6 +195,19 @@ export const migrations: readonly Migration[] = [
       );
     `,
   },
+  {
+    version: 3,
+    name: 'reorder-request-message',
+    sql: `
+      -- The rendered, templated message is kept with the request so the
+      -- user can see exactly what was sent. expected_by = sent + lead time.
+      ALTER TABLE reorder_requests ADD COLUMN note TEXT;
+      ALTER TABLE reorder_requests ADD COLUMN language TEXT NOT NULL DEFAULT 'de' CHECK (language IN ('de', 'en'));
+      ALTER TABLE reorder_requests ADD COLUMN message_subject TEXT;
+      ALTER TABLE reorder_requests ADD COLUMN message_body TEXT;
+      ALTER TABLE reorder_requests ADD COLUMN expected_by TEXT;
+    `,
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1].version;

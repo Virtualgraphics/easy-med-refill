@@ -38,6 +38,7 @@ export function planReminders(
   };
 
   for (const f of forecasts) {
+    if (f.next_action === 'await_delivery') continue;
     if (f.action_by === null || f.days_until_action === null) continue;
     if (f.days_until_action < 1 || f.days_until_action > horizonDays) continue;
     entry(f.action_by).due += 1;

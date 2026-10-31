@@ -9,6 +9,7 @@ export type Tone = 'ok' | 'warn' | 'critical' | 'neutral';
 
 export const STATUS_TONE: Record<SupplyStatus, Tone> = {
   ok: 'ok',
+  ordered: 'ok',
   due_soon: 'warn',
   due: 'critical',
   overdue: 'critical',
@@ -16,10 +17,30 @@ export const STATUS_TONE: Record<SupplyStatus, Tone> = {
   unknown: 'neutral',
 };
 
+/** Colour for a forecast; an overdue order turns "ordered" amber. */
+export function forecastTone(f: SupplyForecast): Tone {
+  if (f.status === 'ordered' && f.open_order?.overdue) return 'warn';
+  return STATUS_TONE[f.status];
+}
+
 /** Badge text: what to do and by when. */
 export function describeAction(f: SupplyForecast): string {
   if (f.status === 'out') return 'Out of stock';
   if (f.status === 'unknown') return 'No dose entered';
+  if (f.status === 'ordered' && f.open_order) {
+    switch (f.open_order.status) {
+      case 'approved':
+        return 'Order waiting to send';
+      case 'sent':
+        return f.open_order.expected_by ? `Ordered · expected ${formatDate(f.open_order.expected_by)}` : 'Ordered · awaiting reply';
+      case 'confirmed':
+        return f.open_order.expected_by ? `Confirmed · expected ${formatDate(f.open_order.expected_by)}` : 'Order confirmed';
+      case 'overdue':
+        return 'Order overdue · follow up';
+      default:
+        return 'Ordered';
+    }
+  }
   if (f.next_action === 'none' || f.action_by === null) return 'Supply ok';
 
   const verb = f.next_action === 'renew_prescription' ? 'Renew Rx' : f.shortage ? 'Shortage: reorder' : 'Reorder';

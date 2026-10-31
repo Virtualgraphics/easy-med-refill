@@ -75,6 +75,8 @@ describe('incremental migration', () => {
     expect(db.prepare('PRAGMA user_version;').get()).toEqual({ user_version: LATEST_SCHEMA_VERSION });
     expect(db.prepare('SELECT count(*) AS n FROM profiles').get()).toEqual({ n: 1 });
     expect(db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'app_settings'`).get()).toEqual({ name: 'app_settings' });
+    const columns = (db.prepare('PRAGMA table_info(reorder_requests)').all() as { name: string }[]).map((c) => c.name);
+    expect(columns).toEqual(expect.arrayContaining(['note', 'language', 'message_subject', 'message_body', 'expected_by']));
     db.close();
   });
 });

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
 
 import { Badge, Body, Button, Card, Muted, Screen, Section, SwitchRow, TextField } from '@/components/ui';
+import { getApiBaseUrl, isStubMode } from '@/lib/api';
 import { getBoolSetting, listProviders, resetAllData, seedDemoData, setBoolSetting, updateProfile, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
 import { clearReminders, ensureNotificationPermission, REMINDER_HOUR } from '@/lib/notifications';
@@ -137,6 +138,7 @@ export default function SettingsScreen() {
       <Section title="Data">
         <Card className="gap-3">
           <Muted>Everything stays in an encrypted database on this phone.</Muted>
+          <Muted>{isStubMode() ? 'Server: none configured. Reorders are tracked locally only.' : `Server: ${getApiBaseUrl()}`}</Muted>
           <Button title="Load demo data" variant="secondary" onPress={seed} loading={busy === 'seed'} />
           <Button title="Delete all data" variant="danger" onPress={reset} loading={busy === 'reset'} />
         </Card>

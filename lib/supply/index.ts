@@ -7,8 +7,9 @@ export {
   type ForecastAllOptions,
   type ForecastInput,
   type NextAction,
+  type OpenOrder,
   type PrescriptionStatus,
   type SupplyForecast,
   type SupplyStatus,
 } from './forecast';
-export { describeAction, describePillRunway, describePrescriptionRunway, STATUS_TONE, type Tone } from './describe';
+export { describeAction, describePillRunway, describePrescriptionRunway, forecastTone, STATUS_TONE, type Tone } from './describe';

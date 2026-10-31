@@ -24,6 +24,7 @@ export type ReorderStatus =
   | 'overdue'
   | 'cancelled';
 export type ShortageSource = 'drugshortage_ch' | 'bwl' | 'simulated';
+export type ReorderLanguage = 'de' | 'en';
 
 export interface ProfileRow {
   id: string;
@@ -126,6 +127,12 @@ export interface ReorderRequestRow {
   cancelled_at: IsoTimestamp | null;
   follow_up_count: number;
   server_reference: string | null;
+  note: string | null;
+  language: ReorderLanguage;
+  message_subject: string | null;
+  message_body: string | null;
+  /** Expected delivery or confirmation date: sent + supplier lead time. */
+  expected_by: IsoDate | null;
   created_at: IsoTimestamp;
   updated_at: IsoTimestamp;
 }

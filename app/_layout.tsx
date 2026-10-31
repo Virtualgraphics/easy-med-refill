@@ -71,6 +71,8 @@ function RootLayoutNav() {
             <Stack.Screen name="medication/[id]/dose" options={{ title: 'Prescribed dose' }} />
             <Stack.Screen name="medication/[id]/pack" options={{ title: 'Add pack' }} />
             <Stack.Screen name="medication/[id]/prescription" options={{ title: 'Add prescription' }} />
+            <Stack.Screen name="medication/[id]/reorder" options={{ title: 'Reorder' }} />
+            <Stack.Screen name="order/[id]" options={{ title: 'Reorder request' }} />
             <Stack.Screen name="provider/new" options={{ title: 'New supplier' }} />
             <Stack.Screen name="scan" options={{ title: 'Scan' }} />
             <Stack.Screen name="import" options={{ title: 'Import from eMediplan' }} />

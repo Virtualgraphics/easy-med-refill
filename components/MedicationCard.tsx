@@ -3,12 +3,12 @@ import { View } from 'react-native';
 
 import { Badge, type BadgeTone, Body, Card, Heading, Muted } from '@/components/ui';
 import { formatUnits, type MedicationSupply } from '@/lib/db';
-import { describeAction, STATUS_TONE, type SupplyForecast, type Tone } from '@/lib/supply';
+import { describeAction, forecastTone, type SupplyForecast, type Tone } from '@/lib/supply';
 
 const toneToBadge: Record<Tone, BadgeTone> = { ok: 'ok', warn: 'warn', critical: 'critical', neutral: 'neutral' };
 
 export function badgeToneFor(forecast: SupplyForecast): BadgeTone {
-  return toneToBadge[STATUS_TONE[forecast.status]];
+  return toneToBadge[forecastTone(forecast)];
 }
 
 interface MedicationCardProps {

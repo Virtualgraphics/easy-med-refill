@@ -20,6 +20,7 @@ function forecast(overrides: Partial<SupplyForecast>): SupplyForecast {
     shortage: false,
     reorder_by: null,
     renewal_by: null,
+    open_order: null,
     next_action: 'none',
     action_by: null,
     days_until_action: null,

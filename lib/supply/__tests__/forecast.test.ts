@@ -51,9 +51,11 @@ function supply(overrides: Partial<MedicationSupply> = {}): MedicationSupply {
     units_on_hand: 100,
     pack_count: 1,
     next_expiry: null,
+    last_pack_size: 50,
     schedule: null,
     daily_units: 2,
     prescription: prescription(),
+    open_request: null,
     ...overrides,
   };
 }

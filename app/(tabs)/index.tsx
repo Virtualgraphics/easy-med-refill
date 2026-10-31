@@ -37,7 +37,8 @@ interface Row {
 
 const GROUPS: { key: string; title: string; statuses: SupplyStatus[]; empty?: string }[] = [
   { key: 'now', title: 'Act now', statuses: ['out', 'overdue', 'due'], empty: 'Nothing needs action today.' },
-  { key: 'week', title: 'This week', statuses: ['due_soon'] },
+  { key: 'week', title: 'Due this week', statuses: ['due_soon'] },
+  { key: 'ordered', title: 'On order', statuses: ['ordered'] },
   { key: 'later', title: 'Coming up', statuses: ['ok'] },
   { key: 'info', title: 'Needs a dose entry', statuses: ['unknown'] },
 ];
@@ -113,7 +114,7 @@ export default function DashboardScreen() {
   const count = (statuses: SupplyStatus[]) => rows.filter((r) => statuses.includes(r.forecast.status)).length;
   const actNow = count(['out', 'overdue', 'due']);
   const thisWeek = count(['due_soon']);
-  const fine = count(['ok']);
+  const fine = count(['ok', 'ordered']);
 
   return (
     <Screen scroll>

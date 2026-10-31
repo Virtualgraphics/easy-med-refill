@@ -12,6 +12,7 @@ import {
   formatUnits,
   getActiveDoseSchedule,
   getMedication,
+  getOpenReorderRequest,
   listDoseScheduleHistory,
   listPacks,
   listPrescriptions,
@@ -29,7 +30,7 @@ import { useProfile } from '@/lib/profile/ProfileContext';
 import { describeAction, describePillRunway, describePrescriptionRunway, forecastAll } from '@/lib/supply';
 
 async function loadDetail(db: DbClient, id: string, profileId: string) {
-  const [medication, packs, schedule, history, prescriptions, providers, shortages] = await Promise.all([
+  const [medication, packs, schedule, history, prescriptions, providers, shortages, openRequest] = await Promise.all([
     getMedication(db, id),
     listPacks(db, id),
     getActiveDoseSchedule(db, id),
@@ -37,8 +38,9 @@ async function loadDetail(db: DbClient, id: string, profileId: string) {
     listPrescriptions(db, id),
     listProviders(db, profileId),
     listShortageMatchedMedicationIds(db, profileId),
+    getOpenReorderRequest(db, id),
   ]);
-  return { medication, packs, schedule, history, prescriptions, providers, shortages };
+  return { medication, packs, schedule, history, prescriptions, providers, shortages, openRequest };
 }
 
 export default function MedicationDetailScreen() {
@@ -58,7 +60,7 @@ export default function MedicationDetailScreen() {
     );
   }
 
-  const { medication, packs, schedule, history, prescriptions, providers, shortages } = data;
+  const { medication, packs, schedule, history, prescriptions, providers, shortages, openRequest } = data;
   const providerById = new Map(providers.map((p) => [p.id, p] as [string, ProviderRow]));
   const unitsOnHand = packs.reduce((sum, p) => sum + p.units_remaining, 0);
   const daily = schedule ? dailyUnits(schedule) : null;
@@ -69,9 +71,11 @@ export default function MedicationDetailScreen() {
     units_on_hand: unitsOnHand,
     pack_count: packs.length,
     next_expiry: packs.find((p) => p.expiry_date)?.expiry_date ?? null,
+    last_pack_size: [...packs].sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0]?.units_per_pack ?? null,
     schedule,
     daily_units: daily,
     prescription: prescriptions[0] ?? null,
+    open_request: openRequest,
   };
   const [forecast] = forecastAll([supply], providers, { shortageMedicationIds: shortages });
 
@@ -80,7 +84,7 @@ export default function MedicationDetailScreen() {
     await reload();
   };
 
-  const go = (screen: 'edit' | 'pack' | 'dose' | 'prescription') =>
+  const go = (screen: 'edit' | 'pack' | 'dose' | 'prescription' | 'reorder') =>
     router.push({ pathname: `/medication/[id]/${screen}`, params: { id } });
 
   return (
@@ -121,6 +125,15 @@ export default function MedicationDetailScreen() {
           />
           {forecast.reorder_by ? <ForecastRow label="Reorder by" value={formatDate(forecast.reorder_by)} /> : null}
           {forecast.renewal_by ? <ForecastRow label="Renew prescription by" value={formatDate(forecast.renewal_by)} /> : null}
+          {openRequest ? (
+            <Button
+              title="View open reorder"
+              variant="secondary"
+              onPress={() => router.push({ pathname: '/order/[id]', params: { id: openRequest.id } })}
+            />
+          ) : (
+            <Button title="Reorder" onPress={() => go('reorder')} />
+          )}
         </Card>
       </Section>
 

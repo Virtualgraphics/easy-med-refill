@@ -7,3 +7,4 @@ export * from './prescriptions';
 export * from './supply';
 export * from './shortages';
 export * from './settings';
+export * from './reorders';

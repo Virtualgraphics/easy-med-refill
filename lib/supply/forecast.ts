@@ -8,6 +8,7 @@
  *   renew by             = prescription end − lead time − buffer, when the
  *                          prescription ends before the pills do
  *   shortage on a critical medication pulls "reorder by" to today
+ *   an open reorder turns the status into "ordered" until it is received
  *
  * Pure functions; no I/O. Dates are YYYY-MM-DD strings, which compare
  * correctly as strings.
@@ -16,15 +17,26 @@ import { addDays, daysBetween, todayIso } from '../db/clock';
 import { refillsRemaining } from '../db/repo/prescriptions';
 import { DEFAULT_LEAD_TIME_DAYS, effectiveLeadTimeDays } from '../db/repo/providers';
 import type { MedicationSupply } from '../db/repo/supply';
-import type { IsoDate, ProviderRow } from '../db/types';
+import type { IsoDate, ProviderRow, ReorderStatus } from '../db/types';
 import { pillRunwayDays } from './runway';
 
 export type PrescriptionStatus = 'none' | 'valid' | 'expired' | 'exhausted';
-export type SupplyStatus = 'unknown' | 'ok' | 'due_soon' | 'due' | 'overdue' | 'out';
-export type NextAction = 'none' | 'reorder' | 'renew_prescription';
+export type SupplyStatus = 'unknown' | 'ok' | 'ordered' | 'due_soon' | 'due' | 'overdue' | 'out';
+export type NextAction = 'none' | 'reorder' | 'renew_prescription' | 'await_delivery';
 
 /** "Due soon" starts this many days before the action date. */
 export const DUE_SOON_DAYS = 7;
+
+/** Request statuses that count as "an order is on its way". */
+const OPEN_ORDER_STATUSES: readonly ReorderStatus[] = ['approved', 'sent', 'confirmed', 'overdue'];
+
+export interface OpenOrder {
+  request_id: string;
+  status: ReorderStatus;
+  expected_by: IsoDate | null;
+  /** No confirmation within the lead time. */
+  overdue: boolean;
+}
 
 export interface SupplyForecast {
   medication_id: string;
@@ -46,6 +58,7 @@ export interface SupplyForecast {
 
   reorder_by: IsoDate | null;
   renewal_by: IsoDate | null;
+  open_order: OpenOrder | null;
 
   next_action: NextAction;
   action_by: IsoDate | null;
@@ -104,9 +117,18 @@ export function forecastSupply({ supply, leadTimeDays, shortage = false, today =
     }
   }
 
+  const request = supply.open_request;
+  const openOrder: OpenOrder | null =
+    request && OPEN_ORDER_STATUSES.includes(request.status)
+      ? { request_id: request.id, status: request.status, expected_by: request.expected_by, overdue: request.status === 'overdue' }
+      : null;
+
   let nextAction: NextAction = 'none';
   let actionBy: IsoDate | null = null;
-  if (renewalBy !== null && (reorderBy === null || renewalBy <= reorderBy)) {
+  if (openOrder) {
+    nextAction = 'await_delivery';
+    actionBy = openOrder.expected_by;
+  } else if (renewalBy !== null && (reorderBy === null || renewalBy <= reorderBy)) {
     nextAction = 'renew_prescription';
     actionBy = renewalBy;
   } else if (reorderBy !== null) {
@@ -119,6 +141,8 @@ export function forecastSupply({ supply, leadTimeDays, shortage = false, today =
   let status: SupplyStatus;
   if (units_on_hand <= 0) {
     status = 'out';
+  } else if (openOrder) {
+    status = 'ordered';
   } else if (daysUntilAction === null) {
     status = pillRunway === null ? 'unknown' : 'ok';
   } else if (daysUntilAction < 0) {
@@ -146,6 +170,7 @@ export function forecastSupply({ supply, leadTimeDays, shortage = false, today =
     shortage: shortageOverride,
     reorder_by: reorderBy,
     renewal_by: renewalBy,
+    open_order: openOrder,
     next_action: nextAction,
     action_by: actionBy,
     days_until_action: daysUntilAction,
@@ -186,7 +211,8 @@ const STATUS_RANK: Record<SupplyStatus, number> = {
   due: 2,
   due_soon: 3,
   ok: 4,
-  unknown: 5,
+  ordered: 5,
+  unknown: 6,
 };
 
 /** Most urgent first; ties by action date, then critical medications first. */
