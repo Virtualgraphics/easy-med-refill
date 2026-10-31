@@ -11,6 +11,7 @@ import {
   effectiveLeadTimeDays,
   formatDate,
   formatUnits,
+  getShortageForMedication,
   getSupplyOverview,
   isIsoDate,
   listProviders,
@@ -28,14 +29,15 @@ import { buildReorderPayload, renderReorderMessage, requestReference, suggestReo
 import { forecastAll } from '@/lib/supply';
 
 async function loadReorder(db: DbClient, profileId: string, medicationId: string) {
-  const [overview, providers, shortages] = await Promise.all([
+  const [overview, providers, shortages, shortage] = await Promise.all([
     getSupplyOverview(db, profileId),
     listProviders(db, profileId),
     listShortageMatchedMedicationIds(db, profileId),
+    getShortageForMedication(db, medicationId),
   ]);
   const supply = overview.find((s) => s.medication.id === medicationId) ?? null;
   const forecast = supply ? forecastAll([supply], providers, { shortageMedicationIds: shortages })[0] : null;
-  return { supply, forecast, providers };
+  return { supply, forecast, providers, shortage };
 }
 
 export default function ReorderScreen() {
@@ -89,6 +91,7 @@ export default function ReorderScreen() {
         validUntil: data.forecast.prescription_end_date,
         refillsRemaining: data.supply.prescription ? refillsRemaining(data.supply.prescription) : null,
       },
+      shortage: data.forecast.shortage && data.shortage ? { status: data.shortage.status } : null,
       note: note.trim() || null,
       reference: '…',
     });
@@ -201,6 +204,7 @@ export default function ReorderScreen() {
         validUntil: forecast.prescription_end_date,
         refillsRemaining: supply.prescription ? refillsRemaining(supply.prescription) : null,
       },
+      shortage: forecast.shortage && data?.shortage ? { status: data.shortage.status } : null,
       note: note.trim() || null,
     };
   }
@@ -221,6 +225,11 @@ export default function ReorderScreen() {
           Suggested: enough for about 90 days after delivery.
         </Muted>
         {!profile.patient_reference ? <Muted className="text-amber-700">No patient reference set. Add one under Settings so the practice can match the request.</Muted> : null}
+        {forecast.shortage ? (
+          <Muted className="text-amber-700">
+            A shortage is reported for this product. The message tells the supplier and asks for early handling.
+          </Muted>
+        ) : null}
       </Card>
 
       <Card className="gap-4">

@@ -73,3 +73,21 @@ export async function syncReminders(forecasts: SupplyForecast[], today: IsoDate 
 export async function clearReminders(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
+
+/**
+ * Immediate local alert when a shortage match appears. Generic text only:
+ * no medication names leave the app.
+ */
+export async function notifySupplyAlert(count: number): Promise<void> {
+  if (!(await hasNotificationPermission())) return;
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: REMINDER_TITLE,
+      body:
+        count === 1
+          ? 'A supply shortage affects one of your medications. Open the app for details.'
+          : `A supply shortage affects ${count} of your medications. Open the app for details.`,
+    },
+    trigger: null,
+  });
+}

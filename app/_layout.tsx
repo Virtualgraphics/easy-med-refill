@@ -4,10 +4,11 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { SQLiteProvider } from 'expo-sqlite';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import 'react-native-reanimated';
 import '../global.css';
 
+import { LaunchScreen } from '@/components/LaunchScreen';
 import { DATABASE_NAME, DATABASE_OPTIONS, initializeDatabase } from '@/lib/db';
 import { configureNotifications } from '@/lib/notifications';
 import { ProfileProvider } from '@/lib/profile/ProfileContext';
@@ -52,13 +53,15 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   return (
-    <SQLiteProvider databaseName={DATABASE_NAME} options={DATABASE_OPTIONS} onInit={initializeDatabase}>
-      <ProfileProvider>
-        <AppThemeProvider>
-          <Navigation />
-        </AppThemeProvider>
-      </ProfileProvider>
-    </SQLiteProvider>
+    <Suspense fallback={<LaunchScreen />}>
+      <SQLiteProvider databaseName={DATABASE_NAME} options={DATABASE_OPTIONS} onInit={initializeDatabase} useSuspense>
+        <ProfileProvider>
+          <AppThemeProvider>
+            <Navigation />
+          </AppThemeProvider>
+        </ProfileProvider>
+      </SQLiteProvider>
+    </Suspense>
   );
 }
 

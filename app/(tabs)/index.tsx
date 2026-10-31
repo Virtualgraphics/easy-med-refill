@@ -4,6 +4,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { DashboardRow } from '@/components/DashboardRow';
 import { GreetingCard } from '@/components/GreetingCard';
+import { ShortageBanner } from '@/components/ShortageBanner';
 import { Body, Button, Card, Muted, Screen, Section } from '@/components/ui';
 import { WelcomeScreen } from '@/components/WelcomeScreen';
 import {
@@ -12,25 +13,39 @@ import {
   getSupplyOverview,
   listProviders,
   listShortageMatchedMedicationIds,
+  listShortageMatches,
   type MedicationSupply,
   seedDemoData,
   setBoolSetting,
   useDb,
 } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
-import { ensureNotificationPermission, syncReminders } from '@/lib/notifications';
+import { ensureNotificationPermission, notifySupplyAlert, syncReminders } from '@/lib/notifications';
+import { syncShortages } from '@/lib/shortages';
 import { useProfile } from '@/lib/profile/ProfileContext';
 import { compareUrgency, forecastAll, type SupplyForecast, type SupplyStatus } from '@/lib/supply';
 import { countStatuses } from '@/lib/supply/summary';
 
 async function loadDashboard(db: DbClient, profileId: string) {
-  const [overview, providers, shortages, remindersEnabled] = await Promise.all([
+  // Refresh the shortage list (throttled) and match it on the device first,
+  // so the forecast below already reflects any new shortage.
+  let newShortageMatches = 0;
+  try {
+    newShortageMatches = (await syncShortages(db, profileId)).newMatches;
+  } catch {
+    // Offline or server trouble: the cached list still applies.
+  }
+  if (newShortageMatches > 0) {
+    notifySupplyAlert(newShortageMatches).catch(() => undefined);
+  }
+  const [overview, providers, shortages, shortageMatches, remindersEnabled] = await Promise.all([
     getSupplyOverview(db, profileId),
     listProviders(db, profileId),
     listShortageMatchedMedicationIds(db, profileId),
+    listShortageMatches(db, profileId),
     getBoolSetting(db, 'reminders_enabled'),
   ]);
-  return { overview, providers, shortages, remindersEnabled };
+  return { overview, providers, shortages, shortageMatches, remindersEnabled };
 }
 
 interface Row {
@@ -122,6 +137,12 @@ export default function DashboardScreen() {
       {error ? <Body className="text-status-critical">{error.message}</Body> : null}
 
       <GreetingCard name={greetingName} counts={counts} />
+
+      <ShortageBanner
+        matches={data?.shortageMatches ?? []}
+        onOpen={(m) => router.push({ pathname: '/medication/[id]', params: { id: m.medication_id } })}
+        onReorder={(m) => router.push({ pathname: '/medication/[id]/reorder', params: { id: m.medication_id } })}
+      />
 
       {!data?.remindersEnabled ? (
         <Card className="gap-3">

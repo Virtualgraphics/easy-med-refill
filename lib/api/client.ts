@@ -80,6 +80,23 @@ export async function submitReorder(payload: ReorderPayload, options: ApiOptions
   return request<ReorderSubmission>('/v1/reorders', { method: 'POST', body: JSON.stringify(payload) }, options);
 }
 
+export interface ShortageFeedEntry {
+  source: string;
+  product_code: string;
+  active_ingredient: string | null;
+  status: string | null;
+  fetched_at: string;
+}
+
+/** Published shortage list (product codes only); null in stub mode. */
+export async function fetchShortages(options: ApiOptions = {}): Promise<ShortageFeedEntry[] | null> {
+  if (!getApiBaseUrl()) {
+    return null;
+  }
+  const data = await request<{ shortages: ShortageFeedEntry[] }>('/v1/shortages', { method: 'GET' }, options);
+  return data.shortages;
+}
+
 /** Current server-side status; null in stub mode. */
 export async function fetchReorderStatus(reference: string, options: ApiOptions = {}): Promise<ReorderStatusResponse | null> {
   if (!getApiBaseUrl()) {

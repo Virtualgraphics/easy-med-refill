@@ -4,6 +4,7 @@ export {
   configureNotifications,
   ensureNotificationPermission,
   hasNotificationPermission,
+  notifySupplyAlert,
   REMINDER_HOUR,
   syncReminders,
 } from './scheduler';

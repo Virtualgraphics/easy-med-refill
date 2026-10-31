@@ -18,6 +18,8 @@ export interface ReorderMessageInput {
   runoutDate: IsoDate | null;
   neededBy: IsoDate | null;
   prescription: { status: PrescriptionStatus; validUntil: IsoDate | null; refillsRemaining: number | null };
+  /** Set when a shortage is reported for this product: the clinic gets a heads-up line. */
+  shortage?: { status: string | null } | null;
   note: string | null;
   reference: string;
 }
@@ -56,6 +58,8 @@ const T = {
     },
     note: 'Bemerkung',
     reference: 'Referenz',
+    shortage: (status: string | null) =>
+      `Hinweis: Für dieses Präparat ist ein Lieferengpass gemeldet${status ? ` (${status})` : ''}. Ich bitte deshalb um frühzeitige Bearbeitung und um Rücksprache, falls die Lieferung nicht möglich ist.`,
     footer:
       'Diese Anfrage wurde mit Easy MedRefill erstellt. Bitte bestätigen Sie den Eingang über den Link unten oder kurz per Antwort auf diese E-Mail.',
     closing: 'Freundliche Grüsse',
@@ -88,6 +92,8 @@ const T = {
     },
     note: 'Note',
     reference: 'Reference',
+    shortage: (status: string | null) =>
+      `Note: a supply shortage is reported for this product${status ? ` (${status})` : ''}. I would therefore be grateful for early handling, and for a call back if delivery is not possible.`,
     footer: 'This request was created with Easy MedRefill. Please confirm receipt via the link below or with a short reply to this email.',
     closing: 'Kind regards',
   },
@@ -126,6 +132,9 @@ export function renderReorderMessage(input: ReorderMessageInput): ReorderMessage
   lines.push(`${t.stock}: ${stock}`);
   if (input.neededBy) lines.push(`${t.neededBy}: ${formatDate(input.neededBy)}`);
   lines.push(`${t.prescription}: ${rx}`);
+  if (input.shortage) {
+    lines.push('', t.shortage(input.shortage.status));
+  }
   if (input.note) {
     lines.push('', `${t.note}: ${input.note}`);
   }

@@ -9,6 +9,7 @@ import { getBoolSetting, listProviders, resetAllData, seedDemoData, setBoolSetti
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
 import { clearReminders, ensureNotificationPermission, REMINDER_HOUR } from '@/lib/notifications';
 import { useProfile } from '@/lib/profile/ProfileContext';
+import { syncShortages } from '@/lib/shortages';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -34,7 +35,25 @@ export default function SettingsScreen() {
 
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [reference, setReference] = useState(profile.patient_reference ?? '');
-  const [busy, setBusy] = useState<'save' | 'seed' | 'reset' | null>(null);
+  const [busy, setBusy] = useState<'save' | 'seed' | 'reset' | 'shortages' | null>(null);
+
+  const checkShortages = async () => {
+    setBusy('shortages');
+    try {
+      const result = await syncShortages(db, profile.id, { force: true });
+      const origin = result.source === 'server' ? 'the server' : result.source === 'simulated' ? 'the simulated feed' : 'the cached list';
+      Alert.alert(
+        'Shortage list checked',
+        `${result.entries} ${result.entries === 1 ? 'entry' : 'entries'} from ${origin}. ${
+          result.newMatches > 0 ? `${result.newMatches} new match${result.newMatches === 1 ? '' : 'es'} with your medications.` : 'No new matches with your medications.'
+        }`,
+      );
+    } catch (e) {
+      Alert.alert('Could not check', e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   useEffect(() => {
     setDisplayName(profile.display_name);
@@ -156,6 +175,7 @@ export default function SettingsScreen() {
         <Card className="gap-3">
           <Muted>Everything stays in an encrypted database on this phone.</Muted>
           <Muted>{isStubMode() ? 'Server: none configured. Reorders are tracked locally only.' : `Server: ${getApiBaseUrl()}`}</Muted>
+          <Button title="Check shortage list now" variant="secondary" onPress={checkShortages} loading={busy === 'shortages'} />
           <Button title="Load demo data" variant="secondary" onPress={seed} loading={busy === 'seed'} />
           <Button title="Delete all data" variant="danger" onPress={reset} loading={busy === 'reset'} />
         </Card>
