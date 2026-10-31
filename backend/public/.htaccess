@@ -1,11 +1,15 @@
 RewriteEngine On
 
-# Force HTTPS
+# Let the certificate validation (Let's Encrypt HTTP-01) through untouched
+RewriteRule ^\.well-known/ - [L]
+
+# Force HTTPS for everything else
 RewriteCond %{HTTPS} !=on
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Route everything to the front controller
 RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]
 
 # No directory listings, no caching of API responses

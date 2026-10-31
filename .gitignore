@@ -49,3 +49,6 @@ CLAUDE.md
 
 # backend secrets
 backend/config/config.php
+
+# local env files (API URL and key)
+.env

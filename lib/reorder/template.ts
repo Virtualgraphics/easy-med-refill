@@ -57,7 +57,7 @@ const T = {
     note: 'Bemerkung',
     reference: 'Referenz',
     footer:
-      'Diese Anfrage wurde mit Easy MedRefill erstellt. Bitte bestätigen Sie den Eingang kurz per Antwort auf diese E-Mail.',
+      'Diese Anfrage wurde mit Easy MedRefill erstellt. Bitte bestätigen Sie den Eingang über den Link unten oder kurz per Antwort auf diese E-Mail.',
     closing: 'Freundliche Grüsse',
   },
   en: {
@@ -88,7 +88,7 @@ const T = {
     },
     note: 'Note',
     reference: 'Reference',
-    footer: 'This request was created with Easy MedRefill. Please confirm receipt with a short reply to this email.',
+    footer: 'This request was created with Easy MedRefill. Please confirm receipt via the link below or with a short reply to this email.',
     closing: 'Kind regards',
   },
 } as const;

@@ -16,7 +16,9 @@ backend/
 ## Deploy
 
 1. Upload the whole `backend` folder to the web space, for example as `~/www/api.easy-medrefill.com`.
-2. In the Hostpoint control panel, point the subdomain `api.easy-medrefill.com` at the **`public`** subfolder. Only `public/` must be reachable over HTTP.
+2. In the Hostpoint control panel, point the subdomain `api.easy-medrefill.com` at either:
+   - the **`public`** subfolder (preferred: code and config stay outside the web root), or
+   - the `backend` folder itself. The root `index.php` and `.htaccess` handle this case, and `src/`, `config/` and `cron/` carry a `Require all denied` so they are never served.
 3. Copy `config/config.example.php` to `config/config.php` and fill in the database password, the mailbox password and an API key (`openssl rand -hex 32`).
 4. Create the tables: import `schema.sql` in phpMyAdmin, or `mysql -h ehozimoc.mysql.db.internal -u ehozimoc_medi -p ehozimoc_easymedrefill < schema.sql`.
 5. Check `https://api.easy-medrefill.com/health` returns `{"ok":true,...}`.
