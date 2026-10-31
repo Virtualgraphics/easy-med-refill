@@ -49,9 +49,15 @@ async function request<T>(path: string, init: RequestInit, { fetchImpl = fetch, 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const apiKey = process.env.EXPO_PUBLIC_API_KEY?.trim() ?? '';
     const response = await fetchImpl(`${base}${path}`, {
       ...init,
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...(init.headers ?? {}) },
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(apiKey ? { 'X-Api-Key': apiKey } : {}),
+        ...(init.headers ?? {}),
+      },
       signal: controller.signal,
     });
     if (!response.ok) {

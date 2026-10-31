@@ -8,11 +8,6 @@
     "scheme": "easymedrefill",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -46,6 +41,18 @@
         "expo-camera",
         {
           "cameraPermission": "Easy MedRefill uses the camera only to read eMediplan QR codes and the codes on medicine packs."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/medic_logo_rounded.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#0B5CAB",
+          "dark": {
+            "backgroundColor": "#052A4F"
+          }
         }
       ]
     ],

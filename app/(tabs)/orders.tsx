@@ -7,8 +7,10 @@ import { Body, Card, Muted, Screen, Section, Title } from '@/components/ui';
 import { type DbClient, detectOverdueReorders, formatDate, listReorderRequests, type ReorderRequestListItem } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
 import { useProfile } from '@/lib/profile/ProfileContext';
+import { syncReorderStatuses } from '@/lib/reorder';
 
 async function loadOrders(db: DbClient, profileId: string) {
+  await syncReorderStatuses(db, profileId);
   await detectOverdueReorders(db, profileId);
   const [open, closed] = await Promise.all([
     listReorderRequests(db, profileId, { active: true }),

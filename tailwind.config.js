@@ -2,6 +2,8 @@
 module.exports = {
   content: ['./app/**/*.{js,jsx,ts,tsx}', './components/**/*.{js,jsx,ts,tsx}'],
   presets: [require('nativewind/preset')],
+  // 'class' lets the in-app Appearance setting control dark mode; 'system' still follows the device.
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {

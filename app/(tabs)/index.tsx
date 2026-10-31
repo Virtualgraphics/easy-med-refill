@@ -1,9 +1,11 @@
-import { useRouter } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
 import { DashboardRow } from '@/components/DashboardRow';
-import { Body, Button, Card, Muted, Screen, Section, Title } from '@/components/ui';
+import { GreetingCard } from '@/components/GreetingCard';
+import { Body, Button, Card, Muted, Screen, Section } from '@/components/ui';
+import { WelcomeScreen } from '@/components/WelcomeScreen';
 import {
   type DbClient,
   getBoolSetting,
@@ -19,6 +21,7 @@ import { useDbQuery } from '@/lib/hooks/useDbQuery';
 import { ensureNotificationPermission, syncReminders } from '@/lib/notifications';
 import { useProfile } from '@/lib/profile/ProfileContext';
 import { compareUrgency, forecastAll, type SupplyForecast, type SupplyStatus } from '@/lib/supply';
+import { countStatuses } from '@/lib/supply/summary';
 
 async function loadDashboard(db: DbClient, profileId: string) {
   const [overview, providers, shortages, remindersEnabled] = await Promise.all([
@@ -98,33 +101,27 @@ export default function DashboardScreen() {
 
   if (rows.length === 0) {
     return (
-      <Screen>
-        <View className="flex-1 items-center justify-center gap-4 px-6">
-          <Title className="text-center">Your supply at a glance</Title>
-          <Muted className="text-center">
-            Once medications are added, this screen shows what needs a reorder or a prescription renewal, and when.
-          </Muted>
-          <Button title="Add medication" onPress={() => router.push('/medication/new')} />
-          <Button title="Load demo data" variant="secondary" onPress={loadDemo} loading={seeding} />
-        </View>
-      </Screen>
+      <>
+        <Tabs.Screen options={{ headerShown: false }} />
+        <WelcomeScreen
+          onScan={() => router.push('/scan')}
+          onAddManually={() => router.push('/medication/new')}
+          onLoadDemo={loadDemo}
+          loadingDemo={seeding}
+        />
+      </>
     );
   }
 
-  const count = (statuses: SupplyStatus[]) => rows.filter((r) => statuses.includes(r.forecast.status)).length;
-  const actNow = count(['out', 'overdue', 'due']);
-  const thisWeek = count(['due_soon']);
-  const fine = count(['ok', 'ordered']);
+  const counts = countStatuses(rows.map((r) => r.forecast.status));
+  const greetingName = profile.display_name === 'My medications' ? null : profile.display_name;
 
   return (
     <Screen scroll>
+      <Tabs.Screen options={{ headerShown: true }} />
       {error ? <Body className="text-status-critical">{error.message}</Body> : null}
 
-      <View className="flex-row gap-3">
-        <StatTile label="Act now" value={actNow} tone={actNow > 0 ? 'critical' : 'ok'} />
-        <StatTile label="This week" value={thisWeek} tone={thisWeek > 0 ? 'warn' : 'ok'} />
-        <StatTile label="Fine" value={fine} tone="ok" />
-      </View>
+      <GreetingCard name={greetingName} counts={counts} />
 
       {!data?.remindersEnabled ? (
         <Card className="gap-3">
@@ -162,16 +159,3 @@ export default function DashboardScreen() {
   );
 }
 
-function StatTile({ label, value, tone }: { label: string; value: number; tone: 'ok' | 'warn' | 'critical' }) {
-  const colors = {
-    ok: 'text-status-ok',
-    warn: 'text-amber-600',
-    critical: 'text-status-critical',
-  }[tone];
-  return (
-    <Pressable className="flex-1 rounded-2xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-      <Text className={`text-3xl font-bold ${value === 0 ? 'text-neutral-400' : colors}`}>{value}</Text>
-      <Text className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{label}</Text>
-    </Pressable>
-  );
-}

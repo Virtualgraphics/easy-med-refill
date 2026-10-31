@@ -2,8 +2,9 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, View } from 'react-native';
 
-import { Badge, Body, Button, Card, Muted, Screen, Section, SwitchRow, TextField } from '@/components/ui';
+import { Badge, Body, Button, Card, Muted, Screen, Section, Segmented, SwitchRow, TextField } from '@/components/ui';
 import { getApiBaseUrl, isStubMode } from '@/lib/api';
+import { useTheme } from '@/lib/theme/ThemeContext';
 import { getBoolSetting, listProviders, resetAllData, seedDemoData, setBoolSetting, updateProfile, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
 import { clearReminders, ensureNotificationPermission, REMINDER_HOUR } from '@/lib/notifications';
@@ -13,6 +14,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const db = useDb();
   const { profile, reload: reloadProfile } = useProfile();
+  const theme = useTheme();
   const providers = useDbQuery((d) => listProviders(d, profile.id), [profile.id]);
   const reminders = useDbQuery((d) => getBoolSetting(d, 'reminders_enabled'), []);
 
@@ -97,6 +99,21 @@ export default function SettingsScreen() {
             helper="Goes into reorder requests so the practice can match you. Keep it short; it is not your full name."
           />
           <Button title="Save" onPress={save} loading={busy === 'save'} />
+        </Card>
+      </Section>
+
+      <Section title="Appearance">
+        <Card>
+          <Segmented
+            label="Theme"
+            options={[
+              { value: 'system', label: 'System' },
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' },
+            ]}
+            value={theme.preference}
+            onChange={(value) => theme.setPreference(value)}
+          />
         </Card>
       </Section>
 

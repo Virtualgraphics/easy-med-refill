@@ -187,6 +187,11 @@ export async function cancelReorderRequest(db: DbClient, id: string): Promise<Re
   return transition(db, id, 'cancelled', { cancelled_at: nowIso() });
 }
 
+export async function setFollowUpCount(db: DbClient, id: string, count: number): Promise<boolean> {
+  const result = await db.runAsync('UPDATE reorder_requests SET follow_up_count = ?, updated_at = ? WHERE id = ?', [count, nowIso(), id]);
+  return result.changes > 0;
+}
+
 export async function recordFollowUp(db: DbClient, id: string): Promise<boolean> {
   const result = await db.runAsync('UPDATE reorder_requests SET follow_up_count = follow_up_count + 1, updated_at = ? WHERE id = ?', [nowIso(), id]);
   return result.changes > 0;

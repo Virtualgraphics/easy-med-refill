@@ -46,3 +46,6 @@ yarn-error.*
 # private project notes (kept local, not published)
 claude.md
 CLAUDE.md
+
+# backend secrets
+backend/config/config.php
