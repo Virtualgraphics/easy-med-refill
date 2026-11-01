@@ -201,17 +201,27 @@ function labelForId(type: EmediplanIdType): string {
   return type === 'gtin' ? 'GTIN' : type === 'pharmacode' ? 'Pharmacode' : 'Product';
 }
 
+/**
+ * Morning / noon / evening / night units -> schedule. Equal doses keep the
+ * intake count; unequal ones collapse to the daily total so supply maths
+ * stays exact. Null when nothing is taken.
+ */
+export function doseFromDailyPattern(daily: number[], isPrn: boolean, validFrom: IsoDate | null = null): ImportCandidate['dose'] {
+  const nonZero = daily.filter((d) => d > 0);
+  if (nonZero.length === 0) return null;
+  const allEqual = nonZero.every((d) => d === nonZero[0]);
+  return {
+    units_per_intake: allEqual ? nonZero[0] : round(nonZero.reduce((a, b) => a + b, 0)),
+    intakes_per_period: allEqual ? nonZero.length : 1,
+    period: 'day',
+    is_prn: isPrn,
+    valid_from: validFrom,
+  };
+}
+
 function doseFromPosology(p: EmediplanPosology): ImportCandidate['dose'] {
   if (p.daily && p.daily.some((d) => d > 0)) {
-    const nonZero = p.daily.filter((d) => d > 0);
-    const allEqual = nonZero.every((d) => d === nonZero[0]);
-    return {
-      units_per_intake: allEqual ? nonZero[0] : round(nonZero.reduce((a, b) => a + b, 0)),
-      intakes_per_period: allEqual ? nonZero.length : 1,
-      period: 'day',
-      is_prn: p.inReserve,
-      valid_from: p.from,
-    };
+    return doseFromDailyPattern(p.daily, p.inReserve, p.from);
   }
   if (p.perCycle !== null && p.perCycle > 0) {
     if (p.cycleSeconds === WEEK) {
@@ -229,7 +239,7 @@ function doseFromPosology(p: EmediplanPosology): ImportCandidate['dose'] {
   return null;
 }
 
-function summariseDose(dose: NonNullable<ImportCandidate['dose']>, unit: string | null): string {
+export function summariseDose(dose: NonNullable<ImportCandidate['dose']>, unit: string | null): string {
   const u = unit ? ` ${unit}` : '';
   const prn = dose.is_prn ? ' (as needed)' : '';
   return `${dose.units_per_intake}${u} × ${dose.intakes_per_period} per ${dose.period}${prn}`;

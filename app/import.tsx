@@ -1,13 +1,12 @@
-import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { Stack, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
 import { Badge, Body, Button, Card, Muted, Screen, TextField, Title } from '@/components/ui';
 import { createMedication, listMedications, setDoseSchedule, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
 import { useProfile } from '@/lib/profile/ProfileContext';
-import { type EmediplanDocument, type ImportCandidate, toImportCandidates } from '@/lib/scan';
-import { takePendingEmediplan } from '@/lib/scan/lastScan';
+import { type ImportCandidate, type PendingImport, takePendingImport } from '@/lib/scan';
 
 interface Row extends ImportCandidate {
   name: string;
@@ -19,31 +18,34 @@ export default function ImportScreen() {
   const router = useRouter();
   const db = useDb();
   const { profile } = useProfile();
-  const [doc] = useState<EmediplanDocument | null>(() => takePendingEmediplan());
+  const [payload] = useState<PendingImport | null>(() => takePendingImport());
   const existing = useDbQuery((d) => listMedications(d, profile.id, { includeArchived: true }), [profile.id]);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const candidates = useMemo(() => (doc ? toImportCandidates(doc) : []), [doc]);
-
   useEffect(() => {
-    if (!existing.data || rows !== null) return;
+    if (!payload || !existing.data || rows !== null) return;
     const byGtin = new Map(existing.data.filter((m) => m.gtin).map((m) => [m.gtin as string, m]));
     const byPharmacode = new Map(existing.data.filter((m) => m.pharmacode).map((m) => [m.pharmacode as string, m]));
+    const byName = new Map(existing.data.map((m) => [m.name.trim().toLowerCase(), m]));
     setRows(
-      candidates.map((c) => {
-        const match = (c.gtin && byGtin.get(c.gtin)) || (c.pharmacode && byPharmacode.get(c.pharmacode)) || null;
+      payload.candidates.map((c) => {
+        const match =
+          (c.gtin && byGtin.get(c.gtin)) ||
+          (c.pharmacode && byPharmacode.get(c.pharmacode)) ||
+          (!c.gtin && !c.pharmacode && byName.get(c.suggestedName.trim().toLowerCase())) ||
+          null;
         return { ...c, name: match?.name ?? c.suggestedName, include: !match, existingName: match?.name ?? null };
       }),
     );
-  }, [candidates, existing.data, rows]);
+  }, [payload, existing.data, rows]);
 
-  if (!doc) {
+  if (!payload) {
     return (
       <Screen>
         <View className="flex-1 items-center justify-center gap-3 px-6">
           <Title>Nothing to import</Title>
-          <Muted className="text-center">Scan an eMediplan QR code first.</Muted>
+          <Muted className="text-center">Scan an eMediplan code or photograph a paper list first.</Muted>
           <Button title="Scan" onPress={() => router.replace('/scan')} />
         </View>
       </Screen>
@@ -78,7 +80,7 @@ export default function ImportScreen() {
             period: row.dose.period,
             is_prn: row.dose.is_prn,
             valid_from: row.dose.valid_from ?? undefined,
-            source: 'emediplan',
+            source: payload.source === 'emediplan' ? 'emediplan' : 'manual',
           });
         }
       }
@@ -88,19 +90,21 @@ export default function ImportScreen() {
     }
   };
 
-  const patientLine = [doc.patient.firstName, doc.patient.lastName].filter(Boolean).join(' ');
+  const photo = payload.source === 'photo';
 
   return (
     <Screen scroll>
+      <Stack.Screen options={{ title: photo ? 'Import from photo' : 'Import from eMediplan' }} />
       <Card className="gap-1">
-        <Body className="font-semibold">
-          {doc.medType === 3 ? 'Prescription' : 'Medication plan'} · {candidates.length} {candidates.length === 1 ? 'entry' : 'entries'}
-        </Body>
+        <Body className="font-semibold">{payload.summary}</Body>
+        {payload.patientLine ? <Muted>{payload.patientLine}</Muted> : null}
+        <Muted>Only the medications are imported, never personal details.</Muted>
         <Muted>
-          {patientLine ? `For ${patientLine}${doc.patient.birthDate ? `, born ${doc.patient.birthDate}` : ''}. ` : ''}
-          Only the medications are imported, never the patient details.
+          {photo
+            ? 'Transcribed by AI from your photo: check every name and dose against the paper before importing.'
+            : 'The plan carries product codes, not names. Check each name before importing.'}
         </Muted>
-        <Muted>The plan carries product codes, not names. Check each name before importing.</Muted>
+        {payload.warning ? <Muted className="text-amber-700">{payload.warning}</Muted> : null}
       </Card>
 
       {rows === null ? (
@@ -111,7 +115,7 @@ export default function ImportScreen() {
             <View className="flex-row items-start justify-between gap-3">
               <View className="flex-1 gap-1">
                 <Muted>
-                  {row.gtin ? `GTIN ${row.gtin}` : row.pharmacode ? `Pharmacode ${row.pharmacode}` : 'No product code'}
+                  {row.gtin ? `GTIN ${row.gtin}` : row.pharmacode ? `Pharmacode ${row.pharmacode}` : photo ? 'From the photo' : 'No product code'}
                 </Muted>
                 <Body>{row.doseSummary}</Body>
                 {row.notes ? <Muted>{row.notes}</Muted> : null}

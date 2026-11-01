@@ -38,7 +38,9 @@ final class Api
 
         if (str_starts_with($path, '/v1/')) {
             Http::requireApiKey($this->config);
-            $this->db();
+            if ($path !== '/v1/extract-plan') {
+                $this->db();
+            }
             if ($method === 'POST' && $path === '/v1/reorders') {
                 $this->createReorder();
             }
@@ -50,6 +52,9 @@ final class Api
             }
             if ($method === 'GET' && $path === '/v1/shortages') {
                 $this->shortages();
+            }
+            if ($method === 'POST' && $path === '/v1/extract-plan') {
+                $this->extractPlan();
             }
         }
 
@@ -212,6 +217,31 @@ final class Api
              ON DUPLICATE KEY UPDATE push_token = VALUES(push_token), platform = VALUES(platform), updated_at = VALUES(updated_at)'
         )->execute([strtolower($id), mb_substr($token, 0, 255), $platform, $now, $now]);
         Http::json(['ok' => true]);
+    }
+
+    /**
+     * Photo of a paper medication list -> structured rows via Muse Spark.
+     * Nothing is persisted: the image lives only in this request.
+     */
+    private function extractPlan(): void
+    {
+        set_time_limit(120);
+        $in = Http::readJson();
+        $image = (string) ($in['image_base64'] ?? '');
+        $mime = (string) ($in['mime'] ?? 'image/jpeg');
+        if ($image === '') {
+            throw new HttpError(422, 'image_base64 is required');
+        }
+        $client = MetaClient::fromConfig($this->config);
+        try {
+            $result = PlanExtractor::extract($client, $image, $mime);
+        } catch (HttpError $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            error_log('[easymedrefill] extract-plan failed: ' . $e->getMessage());
+            throw new HttpError(502, 'The list could not be read right now. Please try again.');
+        }
+        Http::json($result);
     }
 
     private function shortages(): void

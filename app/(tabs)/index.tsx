@@ -120,6 +120,7 @@ export default function DashboardScreen() {
         <Tabs.Screen options={{ headerShown: false }} />
         <WelcomeScreen
           onScan={() => router.push('/scan')}
+          onPhoto={() => router.push('/photo-import')}
           onAddManually={() => router.push('/medication/new')}
           onLoadDemo={loadDemo}
           loadingDemo={seeding}

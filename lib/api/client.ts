@@ -97,6 +97,37 @@ export async function fetchShortages(options: ApiOptions = {}): Promise<Shortage
   return data.shortages;
 }
 
+export interface ExtractedMedication {
+  name: string;
+  active_ingredient: string | null;
+  strength: string | null;
+  form: string | null;
+  morning: number;
+  noon: number;
+  evening: number;
+  night: number;
+  as_needed: boolean;
+  intake_note: string | null;
+  reason: string | null;
+}
+
+export interface ExtractedPlan {
+  medications: ExtractedMedication[];
+  patient_fields_seen: boolean;
+  notes: string | null;
+}
+
+/**
+ * Sends a photo of a paper medication list to the server, which asks
+ * Meta's Muse Spark to transcribe it. Requires a configured server.
+ */
+export async function extractPlanFromPhoto(imageBase64: string, mime: string, options: ApiOptions = {}): Promise<ExtractedPlan> {
+  if (!getApiBaseUrl()) {
+    throw new ApiError('Reading a photo needs the server. Set EXPO_PUBLIC_API_URL.');
+  }
+  return request<ExtractedPlan>('/v1/extract-plan', { method: 'POST', body: JSON.stringify({ image_base64: imageBase64, mime }) }, { timeoutMs: 120_000, ...options });
+}
+
 /** Current server-side status; null in stub mode. */
 export async function fetchReorderStatus(reference: string, options: ApiOptions = {}): Promise<ReorderStatusResponse | null> {
   if (!getApiBaseUrl()) {

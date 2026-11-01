@@ -1,6 +1,9 @@
 export { getApiBaseUrl, isStubMode } from './config';
 export {
   ApiError,
+  type ExtractedMedication,
+  type ExtractedPlan,
+  extractPlanFromPhoto,
   fetchReorderStatus,
   fetchShortages,
   type ShortageFeedEntry,

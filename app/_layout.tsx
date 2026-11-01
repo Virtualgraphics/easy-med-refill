@@ -88,7 +88,8 @@ function Navigation() {
         <Stack.Screen name="order/[id]" options={{ title: 'Reorder request' }} />
         <Stack.Screen name="provider/new" options={{ title: 'New supplier' }} />
         <Stack.Screen name="scan" options={{ title: 'Scan' }} />
-        <Stack.Screen name="import" options={{ title: 'Import from eMediplan' }} />
+        <Stack.Screen name="import" options={{ title: 'Import' }} />
+        <Stack.Screen name="photo-import" options={{ title: 'Photograph a list' }} />
       </Stack>
     </ThemeProvider>
   );

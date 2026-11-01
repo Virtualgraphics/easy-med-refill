@@ -6,6 +6,7 @@ import { Button } from '@/components/ui';
 
 interface WelcomeScreenProps {
   onScan: () => void;
+  onPhoto: () => void;
   onAddManually: () => void;
   onLoadDemo: () => void;
   loadingDemo?: boolean;
@@ -15,7 +16,7 @@ interface WelcomeScreenProps {
  * First-launch screen, shown while the medication list is empty.
  * Swap the images in assets/images to restyle; layout stays the same.
  */
-export function WelcomeScreen({ onScan, onAddManually, onLoadDemo, loadingDemo }: WelcomeScreenProps) {
+export function WelcomeScreen({ onScan, onPhoto, onAddManually, onLoadDemo, loadingDemo }: WelcomeScreenProps) {
   const insets = useSafeAreaInsets();
   return (
     <ImageBackground
@@ -43,7 +44,8 @@ export function WelcomeScreen({ onScan, onAddManually, onLoadDemo, loadingDemo }
             Start with your medication list
           </Text>
           <Button title="Scan eMediplan or pack" onPress={onScan} />
-          <Button title="Add a medication manually" variant="secondary" onPress={onAddManually} />
+          <Button title="Photograph a paper list" variant="secondary" onPress={onPhoto} />
+          <Button title="Add a medication manually" variant="ghost" onPress={onAddManually} />
           <Button title="Explore with demo data" variant="ghost" onPress={onLoadDemo} loading={loadingDemo} />
           <Text className="text-center text-xs text-neutral-500 dark:text-neutral-400">
             Everything stays on this phone, encrypted. Nothing is uploaded until you approve a reorder.

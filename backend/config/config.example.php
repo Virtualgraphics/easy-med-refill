@@ -24,6 +24,10 @@ return [
     'api_key' => 'FILL_ME',
     // Public base URL, used for the confirmation links in emails.
     'base_url' => 'https://api.easy-medrefill.com',
+    // Meta Model API key (dev.meta.ai). Used server-side only: photo list extraction, shortage feed.
+    'meta_api_key' => 'FILL_ME',
+    'meta_api_base' => 'https://api.meta.ai/v1',
+    'meta_model' => 'muse-spark-1.3',
     // Follow-up email after this many days without confirmation, at most max_follow_ups times.
     'follow_up_after_days' => 3,
     'max_follow_ups' => 2,

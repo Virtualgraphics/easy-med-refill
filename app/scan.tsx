@@ -6,8 +6,7 @@ import { Alert, Text, View } from 'react-native';
 import { Body, Button, Muted, Screen } from '@/components/ui';
 import { findMedicationByGtin, useDb } from '@/lib/db';
 import { useProfile } from '@/lib/profile/ProfileContext';
-import { EmediplanParseError, isChTransmissionFormat, looksLikeGs1, parseEmediplan, parseGs1 } from '@/lib/scan';
-import { setPendingEmediplan } from '@/lib/scan/lastScan';
+import { EmediplanParseError, isChTransmissionFormat, looksLikeGs1, parseEmediplan, parseGs1, setPendingImport, toImportCandidates } from '@/lib/scan';
 
 type Mode = 'any' | 'pack';
 
@@ -42,7 +41,15 @@ export default function ScanScreen() {
             Alert.alert('Empty plan', 'This eMediplan contains no medications.', [{ text: 'OK', onPress: rearm }]);
             return;
           }
-          setPendingEmediplan(doc);
+          const candidates = toImportCandidates(doc);
+          const patient = [doc.patient.firstName, doc.patient.lastName].filter(Boolean).join(' ');
+          setPendingImport({
+            source: 'emediplan',
+            candidates,
+            summary: `${doc.medType === 3 ? 'Prescription' : 'Medication plan'} · ${candidates.length} ${candidates.length === 1 ? 'entry' : 'entries'}`,
+            patientLine: patient ? `For ${patient}${doc.patient.birthDate ? `, born ${doc.patient.birthDate}` : ''}.` : null,
+            warning: null,
+          });
           router.replace('/import');
           return;
         }
@@ -115,6 +122,7 @@ export default function ScanScreen() {
         <Text className="text-center text-sm text-neutral-300">
           {busy ? 'Reading…' : 'Hold steady; the code is read automatically.'}
         </Text>
+        {mode !== 'pack' ? <Button title="Paper list without a code? Photograph it" variant="ghost" onPress={() => router.replace('/photo-import')} /> : null}
         <Button title="Cancel" variant="secondary" onPress={() => router.back()} />
       </View>
     </View>

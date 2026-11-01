@@ -41,6 +41,7 @@ backend/
 | GET | `/v1/reorders/{reference}` | X-Api-Key | status for the app to poll |
 | POST | `/v1/devices` | X-Api-Key | register a push token (push itself is not wired yet) |
 | GET | `/v1/shortages` | X-Api-Key | shortage product codes for on-device matching |
+| POST | `/v1/extract-plan` | X-Api-Key | photo of a paper medication list (`image_base64`, `mime`) -> structured rows via Meta Muse Spark; nothing stored |
 | GET | `/p/{token}` | link token | practice view of one request |
 | POST | `/p/{token}/confirm` | link token | one-click confirmation |
 
