@@ -88,7 +88,21 @@ export interface ShortageFeedEntry {
   fetched_at: string;
 }
 
-/** Published shortage list (product codes only); null in stub mode. */
+export interface ShortageRefreshResult {
+  simulated: number;
+  bwl: number | null;
+  bwl_error: string | null;
+}
+
+/** Asks the server to rebuild its shortage list now (BWL via Muse). Null in stub mode. */
+export async function refreshShortagesOnServer(force = false, options: ApiOptions = {}): Promise<ShortageRefreshResult | null> {
+  if (!getApiBaseUrl()) {
+    return null;
+  }
+  return request<ShortageRefreshResult>('/v1/shortages/refresh', { method: 'POST', body: JSON.stringify({ force }) }, { timeoutMs: 120_000, ...options });
+}
+
+/** Published shortage list (product codes and ATC/ingredient rows); null in stub mode. */
 export async function fetchShortages(options: ApiOptions = {}): Promise<ShortageFeedEntry[] | null> {
   if (!getApiBaseUrl()) {
     return null;

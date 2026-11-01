@@ -14,26 +14,56 @@ import { matchShortages } from '../match';
 
 describe('matchShortages', () => {
   const entries = [
-    { source: 'simulated' as const, product_code: '7680000000014' },
-    { source: 'bwl' as const, product_code: '1234567' },
+    { source: 'simulated' as const, product_code: '7680000000014', active_ingredient: 'Tacrolimus' },
+    { source: 'bwl' as const, product_code: '1234567', active_ingredient: null },
   ];
+  const med = (id: string, overrides: Partial<{ name: string; gtin: string | null; pharmacode: string | null; active_ingredient: string | null; archived_at: string | null }>) => ({
+    id,
+    name: 'X',
+    gtin: null,
+    pharmacode: null,
+    active_ingredient: null,
+    archived_at: null,
+    ...overrides,
+  });
 
   it('matches by GTIN and Pharmacode, ignoring archived medications', () => {
     const hits = matchShortages(entries, [
-      { id: 'a', gtin: '7680000000014', pharmacode: null, archived_at: null },
-      { id: 'b', gtin: null, pharmacode: '1234567', archived_at: null },
-      { id: 'c', gtin: '7680000000014', pharmacode: null, archived_at: '2026-01-01T00:00:00Z' },
-      { id: 'd', gtin: '7680000000021', pharmacode: null, archived_at: null },
+      med('a', { gtin: '7680000000014' }),
+      med('b', { pharmacode: '1234567' }),
+      med('c', { gtin: '7680000000014', archived_at: '2026-01-01T00:00:00Z' }),
+      med('d', { gtin: '7680000000021' }),
     ]);
     expect(hits).toEqual([
-      { medication_id: 'a', source: 'simulated', product_code: '7680000000014' },
-      { medication_id: 'b', source: 'bwl', product_code: '1234567' },
+      { medication_id: 'a', source: 'simulated', product_code: '7680000000014', matched_by: 'code' },
+      { medication_id: 'b', source: 'bwl', product_code: '1234567', matched_by: 'code' },
     ]);
   });
 
   it('treats a 14-digit GTIN with a leading zero as the same product', () => {
-    const hits = matchShortages([{ source: 'simulated', product_code: '07680000000014' }], [{ id: 'a', gtin: '7680000000014', pharmacode: null, archived_at: null }]);
+    const hits = matchShortages([{ source: 'simulated', product_code: '07680000000014', active_ingredient: null }], [med('a', { gtin: '7680000000014' })]);
     expect(hits).toHaveLength(1);
+  });
+
+  it('matches federal ATC rows by active ingredient or a word of the name, accent-insensitive', () => {
+    const bwl = [
+      { source: 'bwl' as const, product_code: 'ATC:J01CR02', active_ingredient: 'Co-Amoxicillin / Amoxicillin / Clavulansäure' },
+      { source: 'bwl' as const, product_code: 'ATC:J01MA12', active_ingredient: 'Levofloxacin' },
+    ];
+    const hits = matchShortages(bwl, [
+      med('ingredient', { name: 'Augmentin 1 g', active_ingredient: 'Amoxicillin/Clavulansaure' }),
+      med('byName', { name: 'Levofloxacin Sandoz 500 mg' }),
+      med('none', { name: 'Tacrolimus 1 mg', active_ingredient: 'Tacrolimus' }),
+    ]);
+    expect(hits.map((h) => `${h.medication_id}:${h.product_code}:${h.matched_by}`)).toEqual([
+      'ingredient:ATC:J01CR02:ingredient',
+      'byName:ATC:J01MA12:ingredient',
+    ]);
+  });
+
+  it('does not match short tokens that would be noise', () => {
+    const hits = matchShortages([{ source: 'bwl', product_code: 'ATC:X00XX00', active_ingredient: 'mg / Ab' }], [med('a', { name: 'Tacrolimus 1 mg' })]);
+    expect(hits).toHaveLength(0);
   });
 });
 

@@ -3,8 +3,11 @@ import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Text, View } from 'react-native';
 
+import { AiConsentScreen } from '@/components/AiConsentScreen';
 import { Body, Button, Muted, Screen } from '@/components/ui';
 import { ApiError, extractPlanFromPhoto, isStubMode } from '@/lib/api';
+import { getBoolSetting, setBoolSetting, useDb } from '@/lib/db';
+import { useDbQuery } from '@/lib/hooks/useDbQuery';
 import { extractedToCandidates, setPendingImport } from '@/lib/scan';
 
 /** Largest side we send; enough to read a printed list, small enough to upload quickly. */
@@ -12,6 +15,8 @@ const TARGET_MAX_SIDE = 2048;
 
 export default function PhotoImportScreen() {
   const router = useRouter();
+  const db = useDb();
+  const consent = useDbQuery((d) => getBoolSetting(d, 'ai_photo_consent'), []);
   const camera = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
@@ -91,6 +96,35 @@ export default function PhotoImportScreen() {
           <Muted className="text-center">Set the server address in the app configuration, then try again.</Muted>
         </View>
       </Screen>
+    );
+  }
+
+  if (consent.data === null || consent.loading) {
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: 'Photograph a list' }} />
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color="#0B5CAB" />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (!consent.data) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Photograph a list' }} />
+        <AiConsentScreen
+          onAllow={async () => {
+            await setBoolSetting(db, 'ai_photo_consent', true);
+            await consent.reload();
+          }}
+          onDecline={async () => {
+            await setBoolSetting(db, 'ai_photo_consent', false);
+            router.replace('/scan');
+          }}
+        />
+      </>
     );
   }
 

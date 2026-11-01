@@ -2,7 +2,7 @@
  * Fetches the shortage list and matches it on the device. The server only
  * ever sees the request for the list, never which medications matched.
  */
-import { fetchShortages, isStubMode } from '../api';
+import { fetchShortages, isStubMode, refreshShortagesOnServer } from '../api';
 import type { DbClient } from '../db/client';
 import { nowIso } from '../db/clock';
 import { listMedications } from '../db/repo/medications';
@@ -17,6 +17,10 @@ export interface ShortageSyncResult {
   newMatches: number;
   resolved: number;
   source: 'server' | 'simulated' | 'cached';
+  /** What the server reported when asked to rebuild its list (forced sync only). */
+  serverRefresh: { simulated: number; bwl: number | null; bwl_error: string | null } | null;
+  /** Why the server could not be used, if it could not. */
+  serverError: string | null;
 }
 
 /** Re-fetch at most this often unless forced. */
@@ -28,6 +32,8 @@ export async function syncShortages(db: DbClient, profileId: string, options: { 
   const last = await getSetting(db, 'shortages_synced_at');
   const stale = !last || Date.now() - Date.parse(last) > SHORTAGE_SYNC_INTERVAL_MS;
   let source: ShortageSyncResult['source'] = 'cached';
+  let serverRefresh: ShortageSyncResult['serverRefresh'] = null;
+  let serverError: string | null = null;
 
   if (options.force || stale) {
     let entries: ShortageEntryInput[] | null = null;
@@ -36,6 +42,10 @@ export async function syncShortages(db: DbClient, profileId: string, options: { 
       source = 'simulated';
     } else {
       try {
+        if (options.force) {
+          // Manual check: have the server re-read the federal list first.
+          serverRefresh = await refreshShortagesOnServer(true);
+        }
         const remote = await fetchShortages();
         if (remote) {
           entries = remote
@@ -43,8 +53,9 @@ export async function syncShortages(db: DbClient, profileId: string, options: { 
             .map((r) => ({ source: r.source as ShortageSource, product_code: r.product_code, active_ingredient: r.active_ingredient, status: r.status }));
           source = 'server';
         }
-      } catch {
-        // Offline: keep the cached list and match against that.
+      } catch (e) {
+        // Offline or server trouble: keep the cached list and match against that.
+        serverError = e instanceof Error ? e.message : String(e);
       }
     }
     if (entries) {
@@ -55,12 +66,16 @@ export async function syncShortages(db: DbClient, profileId: string, options: { 
 
   const [entries, medications] = await Promise.all([listShortageEntries(db), listMedications(db, profileId, { includeArchived: true })]);
   let newMatches = 0;
+  const seen = new Set<string>();
   for (const hit of matchShortages(entries, medications)) {
+    const key = `${hit.medication_id}|${hit.source}|${hit.product_code}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     if (await recordShortageMatch(db, hit.medication_id, hit.source, hit.product_code)) {
       newMatches++;
     }
   }
   const resolved = await resolveStaleShortageMatches(db);
 
-  return { entries: entries.length, newMatches, resolved, source };
+  return { entries: entries.length, newMatches, resolved, source, serverRefresh, serverError };
 }

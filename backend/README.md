@@ -40,10 +40,17 @@ backend/
 | POST | `/v1/reorders` | X-Api-Key | queue a reorder; sends the email immediately, cron retries on failure |
 | GET | `/v1/reorders/{reference}` | X-Api-Key | status for the app to poll |
 | POST | `/v1/devices` | X-Api-Key | register a push token (push itself is not wired yet) |
-| GET | `/v1/shortages` | X-Api-Key | shortage product codes for on-device matching |
+| GET | `/v1/shortages` | X-Api-Key | shortage list (product codes and ATC/ingredient rows) for on-device matching |
+| POST | `/v1/shortages/refresh` | X-Api-Key | rebuild the list now: simulated feed + federal BWL list read by Muse Spark (`{"force":true}` to bypass the 6h cache) |
 | POST | `/v1/extract-plan` | X-Api-Key | photo of a paper medication list (`image_base64`, `mime`) -> structured rows via Meta Muse Spark; nothing stored |
 | GET | `/p/{token}` | link token | practice view of one request |
 | POST | `/p/{token}/confirm` | link token | one-click confirmation |
+
+## Shortage data sources
+
+- **BWL Meldestelle** (federal): the monthly "Wirkstoffliste Teilmengenabgabe" PDF is read by Muse Spark via the Responses API (`input_file` by URL, structured output) into ATC code + active ingredient rows. Matched on the device by active ingredient.
+- **Simulated** feed in `cron/shortages.simulated.json` for demos.
+- **drugshortage.ch** is deliberately not fetched: its terms of use require a licence for integration into other products. The brief plans a data partnership instead.
 
 ## What the server stores
 

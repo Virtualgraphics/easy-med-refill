@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Sends queued reorder emails (those whose immediate send failed).
- * Cron: */10 * * * *  php /path/to/backend/cron/send-reorders.php
+ * Cron: every 10 minutes: php /path/to/backend/cron/send-reorders.php
  */
 require __DIR__ . '/../src/bootstrap.php';
 

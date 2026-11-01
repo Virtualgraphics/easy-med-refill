@@ -17,4 +17,5 @@ require __DIR__ . '/ReorderRepository.php';
 require __DIR__ . '/PracticePage.php';
 require __DIR__ . '/MetaClient.php';
 require __DIR__ . '/PlanExtractor.php';
+require __DIR__ . '/ShortageFeed.php';
 require __DIR__ . '/Api.php';

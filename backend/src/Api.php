@@ -53,6 +53,11 @@ final class Api
             if ($method === 'GET' && $path === '/v1/shortages') {
                 $this->shortages();
             }
+            if ($method === 'POST' && $path === '/v1/shortages/refresh') {
+                set_time_limit(120);
+                $force = (bool) (Http::readJsonOrEmpty()['force'] ?? false);
+                Http::json(ShortageFeed::refresh($this->config, $this->pdo, $force));
+            }
             if ($method === 'POST' && $path === '/v1/extract-plan') {
                 $this->extractPlan();
             }

@@ -18,6 +18,7 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const providers = useDbQuery((d) => listProviders(d, profile.id), [profile.id]);
   const reminders = useDbQuery((d) => getBoolSetting(d, 'reminders_enabled'), []);
+  const aiPhoto = useDbQuery((d) => getBoolSetting(d, 'ai_photo_consent'), []);
 
   const toggleReminders = async (value: boolean) => {
     if (value) {
@@ -42,12 +43,17 @@ export default function SettingsScreen() {
     try {
       const result = await syncShortages(db, profile.id, { force: true });
       const origin = result.source === 'server' ? 'the server' : result.source === 'simulated' ? 'the simulated feed' : 'the cached list';
-      Alert.alert(
-        'Shortage list checked',
-        `${result.entries} ${result.entries === 1 ? 'entry' : 'entries'} from ${origin}. ${
-          result.newMatches > 0 ? `${result.newMatches} new match${result.newMatches === 1 ? '' : 'es'} with your medications.` : 'No new matches with your medications.'
-        }`,
-      );
+      const lines = [
+        `${result.entries} ${result.entries === 1 ? 'entry' : 'entries'} from ${origin}.`,
+        result.newMatches > 0 ? `${result.newMatches} new match${result.newMatches === 1 ? '' : 'es'} with your medications.` : 'No new matches with your medications.',
+      ];
+      if (result.serverRefresh) {
+        const r = result.serverRefresh;
+        lines.push(`Server rebuilt: ${r.simulated} simulated, federal list ${r.bwl === null ? 'skipped (cached)' : `${r.bwl} entries`}.`);
+        if (r.bwl_error) lines.push(`Federal list error: ${r.bwl_error}`);
+      }
+      if (result.serverError) lines.push(`Server: ${result.serverError}`);
+      Alert.alert('Shortage list checked', lines.join('\n'));
     } catch (e) {
       Alert.alert('Could not check', e instanceof Error ? e.message : 'Unknown error');
     } finally {
@@ -133,6 +139,21 @@ export default function SettingsScreen() {
             value={theme.preference}
             onChange={(value) => theme.setPreference(value)}
           />
+        </Card>
+      </Section>
+
+      <Section title="AI features">
+        <Card className="gap-3">
+          <SwitchRow
+            label="Photo import with AI"
+            helper="A photo of a paper list is sent to Meta's AI service outside Switzerland to read it. Not stored. You check every entry before it is saved."
+            value={aiPhoto.data ?? false}
+            onValueChange={async (value) => {
+              await setBoolSetting(db, 'ai_photo_consent', value);
+              await aiPhoto.reload();
+            }}
+          />
+          <Muted>QR scanning, pack scanning and manual entry never leave the phone.</Muted>
         </Card>
       </Section>
 

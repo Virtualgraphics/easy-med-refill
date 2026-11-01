@@ -34,6 +34,7 @@ export function ShortageBanner({ matches, onOpen, onReorder }: ShortageBannerPro
           </Text>
           <Text className="text-sm text-neutral-700 dark:text-neutral-300">
             {m.status ?? 'Supply shortage listed by the source'}
+            {m.product_code.startsWith('ATC:') ? ` · matched by active ingredient (${m.active_ingredient ?? m.product_code.slice(4)})` : ''}
             {m.is_critical ? '. Reorder date moved to today; the request tells your clinic.' : '.'}
           </Text>
           {m.is_critical ? (

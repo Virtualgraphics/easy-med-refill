@@ -18,7 +18,9 @@ You read photographs of Swiss medication lists (Medikationsplan, Medikamentenlis
 Rules:
 - Transcribe only what is printed or handwritten. Never add, guess, correct or recommend medications or doses.
 - One row per medication line. Keep the product name exactly as written (brand or generic), with strength separately.
-- Intake pattern: Swiss lists use columns or a pattern like "1-0-1-0" meaning morning-noon-evening-night units per intake. Fill morning/noon/evening/night with the printed numbers (fractions like 1/2 become 0.5). If no pattern is printed, use 0 for all four and set as_needed=false.
+- Intake pattern: Swiss lists use columns or a pattern like "1-0-1-0" meaning morning-noon-evening-night units per intake. Fill morning/noon/evening/night with the printed numbers (fractions like 1/2 become 0.5).
+- If the intake is written as text instead, convert it only when unambiguous: "1x täglich abends" -> evening 1; "2 Tabletten morgens" -> morning 2; "morgens und abends je 1" -> morning 1, evening 1; "1x täglich" without a time -> morning 1. Always keep the original wording in intake_note. If the text gives no countable units (e.g. "dünn auftragen", "zum Duschen"), leave all four at 0.
+- If nothing about intake is printed, use 0 for all four and set as_needed=false.
 - as_needed=true only if the list says "bei Bedarf", "Reserve", "PRN", "au besoin", "al bisogno" or similar.
 - intake_note: timing or instructions printed for that row, e.g. "vor dem Essen", "1x wöchentlich". If the frequency is weekly, say so here.
 - reason: the printed indication/purpose for that row, if any.

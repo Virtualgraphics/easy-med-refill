@@ -71,6 +71,58 @@ final class MetaClient
     }
 
     /**
+     * Responses API variant: lets the model read a document by public URL
+     * (input_file) and returns structured JSON via text.format.
+     *
+     * @param array<string, mixed> $schema
+     * @return array<string, mixed>
+     */
+    public function extractJsonFromFileUrl(string $instructions, string $userText, string $fileUrl, string $schemaName, array $schema): array
+    {
+        $body = [
+            'model' => $this->model,
+            'instructions' => $instructions,
+            'input' => [
+                [
+                    'role' => 'user',
+                    'content' => [
+                        ['type' => 'input_text', 'text' => $userText],
+                        ['type' => 'input_file', 'file_url' => $fileUrl, 'detail' => 'high'],
+                    ],
+                ],
+            ],
+            'temperature' => 0,
+            'text' => [
+                'format' => ['type' => 'json_schema', 'name' => $schemaName, 'schema' => $schema, 'strict' => true],
+            ],
+        ];
+
+        $response = $this->post('/responses', $body);
+        $text = null;
+        foreach (is_array($response['output'] ?? null) ? $response['output'] : [] as $item) {
+            if (($item['type'] ?? '') !== 'message') {
+                continue;
+            }
+            foreach (is_array($item['content'] ?? null) ? $item['content'] : [] as $part) {
+                if (($part['type'] ?? '') === 'output_text' && is_string($part['text'] ?? null)) {
+                    $text = ($text ?? '') . $part['text'];
+                }
+            }
+        }
+        if ($text === null && is_string($response['output_text'] ?? null)) {
+            $text = $response['output_text'];
+        }
+        if ($text === null) {
+            throw new \RuntimeException('Model returned no content');
+        }
+        $decoded = json_decode($text, true);
+        if (!is_array($decoded)) {
+            throw new \RuntimeException('Model returned invalid JSON');
+        }
+        return $decoded;
+    }
+
+    /**
      * @param array<string, mixed> $body
      * @return array<string, mixed>
      */

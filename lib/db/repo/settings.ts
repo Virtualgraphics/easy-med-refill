@@ -2,7 +2,7 @@ import type { DbClient } from '../client';
 import { nowIso } from '../clock';
 
 /** Known preference keys. Values are strings; booleans are '1' / '0'. */
-export type SettingKey = 'reminders_enabled' | 'theme' | 'shortages_synced_at';
+export type SettingKey = 'reminders_enabled' | 'theme' | 'shortages_synced_at' | 'ai_photo_consent';
 
 export async function getSetting(db: DbClient, key: SettingKey): Promise<string | null> {
   const row = await db.getFirstAsync<{ value: string | null }>('SELECT value FROM app_settings WHERE key = ?', [key]);
