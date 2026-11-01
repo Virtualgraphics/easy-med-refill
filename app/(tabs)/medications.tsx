@@ -1,4 +1,5 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Feather from '@expo/vector-icons/Feather';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Stack, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
@@ -51,10 +52,10 @@ export default function MedicationsScreen() {
           headerRight: () => (
             <View className="flex-row items-center">
               <Pressable accessibilityRole="button" accessibilityLabel="Scan a code" onPress={() => router.push('/scan')} hitSlop={8}>
-                <FontAwesome name="qrcode" size={22} color="#fff" style={{ marginRight: 20 }} />
+                <MaterialCommunityIcons name="qrcode-scan" size={22} color="#fff" style={{ marginRight: 20 }} />
               </Pressable>
               <Pressable accessibilityRole="button" accessibilityLabel="Add medication" onPress={() => router.push('/medication/new')} hitSlop={8}>
-                <FontAwesome name="plus" size={22} color="#fff" style={{ marginRight: 16 }} />
+                <Feather name="plus" size={24} color="#fff" style={{ marginRight: 16 }} />
               </Pressable>
             </View>
           ),

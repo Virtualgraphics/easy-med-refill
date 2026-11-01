@@ -13,7 +13,7 @@ export function LaunchScreen() {
         <View
           className="items-center justify-center rounded-3xl bg-brand-600"
           style={{ width: 168, height: 168, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 8 }}>
-          <Image source={require('../assets/images/medic_logo_rounded.png')} style={{ width: 168, height: 168, borderRadius: 24 }} />
+          <Image source={require('../assets/images/icon.png')} style={{ width: 168, height: 168, borderRadius: 24 }} />
         </View>
         <Text className="mt-10 text-center text-3xl font-bold uppercase tracking-wide text-brand-700" style={{ letterSpacing: 1.5 }}>
           Easy Med Refill

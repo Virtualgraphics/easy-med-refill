@@ -1,6 +1,7 @@
 export { Badge, type BadgeTone } from './Badge';
 export { Button } from './Button';
 export { Card } from './Card';
+export { Collapsible } from './Collapsible';
 export { Screen } from './Screen';
 export { Section } from './Section';
 export { Segmented, type SegmentOption } from './Segmented';

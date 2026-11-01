@@ -1,4 +1,4 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import Feather from '@expo/vector-icons/Feather';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -21,7 +21,7 @@ export function ShortageBanner({ matches, onOpen, onReorder }: ShortageBannerPro
   return (
     <View className="gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950">
       <View className="flex-row items-center gap-2">
-        <FontAwesome name="exclamation-triangle" size={16} color="#B45309" />
+        <Feather name="alert-triangle" size={18} color="#B45309" />
         <Text className="text-base font-semibold text-amber-900 dark:text-amber-200">
           {matches.length === 1 ? 'Shortage reported' : `${matches.length} shortages reported`}
         </Text>

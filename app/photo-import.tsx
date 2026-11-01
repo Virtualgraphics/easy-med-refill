@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Text, View } from 'react-native';
@@ -47,6 +48,27 @@ export default function PhotoImportScreen() {
       setShot({ uri: photo.uri, base64: photo.base64 });
     } catch (e) {
       Alert.alert('Could not take the photo', e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const pickFromGallery = async () => {
+    setBusy('capture');
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.6,
+        base64: true,
+        allowsEditing: false,
+        selectionLimit: 1,
+      });
+      const asset = result.assets?.[0];
+      if (result.canceled || !asset) return;
+      if (!asset.base64) throw new Error('No image data');
+      setShot({ uri: asset.uri, base64: asset.base64 });
+    } catch (e) {
+      Alert.alert('Could not open the photo', e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setBusy(null);
     }
@@ -166,7 +188,8 @@ export default function PhotoImportScreen() {
           The photo is sent to the Easy MedRefill server and read by Meta's AI. It is not stored. Cover your name and address if you prefer.
         </Text>
         {busy === 'capture' ? <ActivityIndicator color="#fff" /> : <Button title="Take photo" onPress={capture} />}
-        <Button title="Cancel" variant="secondary" onPress={() => router.back()} />
+        <Button title="Choose from gallery" variant="secondary" onPress={pickFromGallery} disabled={busy === 'capture'} />
+        <Button title="Cancel" variant="ghost" onPress={() => router.back()} />
       </View>
     </View>
   );

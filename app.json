@@ -14,7 +14,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#005BAA"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -46,13 +46,19 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/medic_logo_rounded.png",
+          "image": "./assets/images/icon.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#0B5CAB",
+          "backgroundColor": "#005BAA",
           "dark": {
             "backgroundColor": "#052A4F"
           }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Easy MedRefill opens a photo only to read a medication list you choose."
         }
       ]
     ],

@@ -27,7 +27,7 @@ export function WelcomeScreen({ onScan, onPhoto, onAddManually, onLoadDemo, load
       <View className="flex-1 items-center justify-between px-6">
         <View className="items-center gap-5">
           <Image
-            source={require('../assets/images/medic_logo_rounded.png')}
+            source={require('../assets/images/icon.png')}
             style={{ width: 112, height: 112, borderRadius: 24 }}
             accessibilityIgnoresInvertColors
           />
