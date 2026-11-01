@@ -142,7 +142,7 @@ export default function DashboardScreen() {
       <ShortageBanner
         matches={data?.shortageMatches ?? []}
         onOpen={(m) => router.push({ pathname: '/medication/[id]', params: { id: m.medication_id } })}
-        onReorder={(m) => router.push({ pathname: '/medication/[id]/reorder', params: { id: m.medication_id } })}
+        onReorder={(m) => router.push({ pathname: '/reorder', params: { medicationId: m.medication_id } })}
       />
 
       {!data?.remindersEnabled ? (

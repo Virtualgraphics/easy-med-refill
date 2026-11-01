@@ -1,23 +1,27 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 
 import { OrderStatusBadge } from '@/components/OrderStatus';
 import { Body, Button, Card, Muted, Screen, Section } from '@/components/ui';
 import { ApiError, isStubMode, submitReorder } from '@/lib/api';
 import {
+  ACTIVE_REORDER_STATUSES,
   addDays,
+  cancelReorderBatch,
   cancelReorderRequest,
   type DbClient,
   effectiveLeadTimeDays,
   formatDate,
   getMedication,
   getProvider,
-  getReorderRequest,
-  markReorderConfirmed,
+  getReorderBatch,
+  markBatchConfirmed,
+  markBatchReceived,
+  markBatchSent,
   markReorderReceived,
-  markReorderSent,
-  recordFollowUp,
+  recordBatchFollowUp,
+  type ReorderRequestListItem,
   todayIso,
   useDb,
 } from '@/lib/db';
@@ -25,11 +29,11 @@ import { useDbQuery } from '@/lib/hooks/useDbQuery';
 import { useProfile } from '@/lib/profile/ProfileContext';
 import { buildReorderPayload, requestReference } from '@/lib/reorder';
 
-async function loadOrder(db: DbClient, id: string) {
-  const request = await getReorderRequest(db, id);
-  if (!request) return null;
-  const [medication, provider] = await Promise.all([getMedication(db, request.medication_id), getProvider(db, request.provider_id)]);
-  return { request, medication, provider };
+async function loadOrder(db: DbClient, batchId: string) {
+  const batch = await getReorderBatch(db, batchId);
+  if (!batch) return null;
+  const [provider, medications] = await Promise.all([getProvider(db, batch.provider_id), Promise.all(batch.items.map((i) => getMedication(db, i.medication_id)))]);
+  return { batch, provider, medications };
 }
 
 export default function OrderDetailScreen() {
@@ -43,14 +47,13 @@ export default function OrderDetailScreen() {
   if (!data) {
     return (
       <Screen>
-        <View className="flex-1 items-center justify-center">
-          {loading ? <ActivityIndicator color="#0B5CAB" /> : <Muted>Request not found.</Muted>}
-        </View>
+        <View className="flex-1 items-center justify-center">{loading ? <ActivityIndicator color="#0B5CAB" /> : <Muted>Order not found.</Muted>}</View>
       </Screen>
     );
   }
 
-  const { request, medication, provider } = data;
+  const { batch, provider, medications } = data;
+  const medicationFor = (item: ReorderRequestListItem) => medications.find((m) => m?.id === item.medication_id) ?? null;
 
   const act = async (label: string, fn: () => Promise<void>) => {
     setBusy(label);
@@ -66,84 +69,129 @@ export default function OrderDetailScreen() {
 
   const sendNow = () =>
     act('send', async () => {
-      if (!medication || !provider) throw new Error('Medication or supplier is missing.');
-      const result = await submitReorder(buildReorderPayload(request, medication, provider, profile));
-      await markReorderSent(db, request.id, {
-        server_reference: result.reference,
-        expected_by: addDays(todayIso(), Math.round(effectiveLeadTimeDays(provider))),
+      if (!provider) throw new Error('The supplier is missing.');
+      const items = batch.items.map((request) => {
+        const medication = medicationFor(request);
+        if (!medication) throw new Error('A medication in this order no longer exists.');
+        return { request, medication };
       });
+      try {
+        const result = await submitReorder(buildReorderPayload(batch, items, provider, profile));
+        await markBatchSent(db, batch.batch_id, {
+          server_reference: result.reference,
+          expected_by: addDays(todayIso(), Math.round(effectiveLeadTimeDays(provider))),
+        });
+      } catch (e) {
+        throw new Error(e instanceof ApiError ? e.message : 'The server could not be reached.');
+      }
     });
 
-  const confirm = () => act('confirm', () => markReorderConfirmed(db, request.id).then(() => undefined));
+  const confirm = () => act('confirm', () => markBatchConfirmed(db, batch.batch_id));
 
-  const received = () =>
-    act('received', async () => {
-      await markReorderReceived(db, request.id);
-      Alert.alert('Received', 'Add the delivered packs to your stock now?', [
-        { text: 'Later', style: 'cancel' },
-        {
-          text: 'Add packs',
-          onPress: () =>
-            router.replace({ pathname: '/medication/[id]/pack', params: { id: request.medication_id, gtin: medication?.gtin ?? '' } }),
-        },
-      ]);
+  const receivedAll = () => act('received', () => markBatchReceived(db, batch.batch_id));
+
+  const receivedOne = (item: ReorderRequestListItem) =>
+    act(`received-${item.id}`, async () => {
+      await markReorderReceived(db, item.id, todayIso(), { learnLeadTime: false });
     });
+
+  const cancelOne = (item: ReorderRequestListItem) =>
+    Alert.alert(`Remove ${item.medication_name}?`, 'The supplier is not notified automatically.', [
+      { text: 'Keep', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => act(`cancel-${item.id}`, () => cancelReorderRequest(db, item.id).then(() => undefined)) },
+    ]);
 
   const followUp = () =>
     act('followup', async () => {
-      await recordFollowUp(db, request.id);
+      await recordBatchFollowUp(db, batch.batch_id);
       Alert.alert('Follow-up noted', 'Automatic follow-up emails are sent by the server once it is connected. The count is tracked here.');
     });
 
   const cancel = () =>
-    Alert.alert('Cancel this request?', 'The practice or pharmacy is not notified automatically.', [
+    Alert.alert('Cancel this order?', 'Every medication in it is cancelled. The practice or pharmacy is not notified automatically.', [
       { text: 'Keep', style: 'cancel' },
-      { text: 'Cancel request', style: 'destructive', onPress: () => act('cancel', () => cancelReorderRequest(db, request.id).then(() => undefined)) },
+      { text: 'Cancel order', style: 'destructive', onPress: () => act('cancel', () => cancelReorderBatch(db, batch.batch_id)) },
     ]);
 
+  const addPacks = (item: ReorderRequestListItem) =>
+    router.push({ pathname: '/medication/[id]/pack', params: { id: item.medication_id, gtin: medicationFor(item)?.gtin ?? '' } });
+
   const timeline: { label: string; at: string | null }[] = [
-    { label: 'Created', at: request.created_at },
-    { label: 'Approved', at: request.approved_at },
-    { label: 'Sent', at: request.sent_at },
-    { label: 'Confirmed', at: request.confirmed_at },
-    { label: 'Marked overdue', at: request.overdue_at },
-    { label: 'Received', at: request.received_at },
-    { label: 'Cancelled', at: request.cancelled_at },
+    { label: 'Created', at: batch.created_at },
+    { label: 'Approved', at: batch.approved_at },
+    { label: 'Sent', at: batch.sent_at },
+    { label: 'Confirmed', at: batch.confirmed_at },
+    { label: 'Marked overdue', at: batch.overdue_at },
+    { label: 'Received', at: batch.received_at },
+    { label: 'Cancelled', at: batch.cancelled_at },
   ];
 
-  const open = ['approved', 'sent', 'confirmed', 'overdue'].includes(request.status);
+  const open = ACTIVE_REORDER_STATUSES.includes(batch.status) && batch.status !== 'draft';
+  const deliverable = ['sent', 'confirmed', 'overdue'].includes(batch.status);
+  const openItems = batch.items.filter((i) => ACTIVE_REORDER_STATUSES.includes(i.status));
+  const packs = batch.items.reduce((sum, i) => (i.status === 'cancelled' ? sum : sum + i.quantity_packs), 0);
+  const count = batch.items.length;
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ title: request.medication_name }} />
+      <Stack.Screen options={{ title: count === 1 ? batch.items[0].medication_name : `Order · ${count} medications` }} />
 
       <Card className="gap-3">
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-1 gap-0.5">
             <Body className="font-semibold">
-              {request.quantity_packs} {request.quantity_packs === 1 ? 'pack' : 'packs'} from {request.provider_name}
+              {count} {count === 1 ? 'medication' : 'medications'} · {packs} {packs === 1 ? 'pack' : 'packs'} from {batch.provider_name}
             </Body>
-            <Muted>Reference {requestReference(request.id)}{request.server_reference ? ` · server ${request.server_reference}` : ''}</Muted>
-            {request.needed_by ? <Muted>Needed by {formatDate(request.needed_by)}</Muted> : null}
-            {request.expected_by ? <Muted>Expected by {formatDate(request.expected_by)}</Muted> : null}
+            <Muted>
+              Reference {requestReference(batch.batch_id)}
+              {batch.server_reference ? ` · server ${batch.server_reference}` : ''}
+            </Muted>
+            {batch.needed_by ? <Muted>Needed by {formatDate(batch.needed_by)}</Muted> : null}
+            {batch.expected_by ? <Muted>Expected by {formatDate(batch.expected_by)}</Muted> : null}
           </View>
-          <OrderStatusBadge status={request.status} />
+          <OrderStatusBadge status={batch.status} />
         </View>
-        {isStubMode() && request.status !== 'draft' ? (
-          <Muted>No server configured: the request is tracked on this phone only, no email was sent.</Muted>
-        ) : null}
+        {isStubMode() && batch.status !== 'draft' ? <Muted>No server configured: the order is tracked on this phone only, no email was sent.</Muted> : null}
       </Card>
+
+      <Section title="Medications">
+        <View className="overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+          {batch.items.map((item, index) => {
+            const itemOpen = ACTIVE_REORDER_STATUSES.includes(item.status);
+            const differs = item.status !== batch.status;
+            return (
+              <View key={item.id} className={`flex-row items-center gap-3 px-4 py-3 ${index > 0 ? 'border-t border-neutral-100 dark:border-neutral-800' : ''}`}>
+                <View className="flex-1 gap-0.5">
+                  <Body className={`font-semibold ${item.status === 'cancelled' ? 'line-through text-neutral-400' : ''}`}>{item.medication_name}</Body>
+                  <Muted>
+                    {item.quantity_packs} {item.quantity_packs === 1 ? 'pack' : 'packs'}
+                    {differs ? ` · ${item.status}` : ''}
+                  </Muted>
+                </View>
+                {item.status === 'received' ? (
+                  <LinkButton label="Add packs" onPress={() => addPacks(item)} />
+                ) : deliverable && itemOpen && openItems.length > 1 ? (
+                  <LinkButton label="Received" onPress={() => receivedOne(item)} busy={busy === `received-${item.id}`} />
+                ) : null}
+                {itemOpen && openItems.length > 1 && !deliverable ? <LinkButton label="Remove" onPress={() => cancelOne(item)} tone="muted" /> : null}
+              </View>
+            );
+          })}
+        </View>
+      </Section>
 
       {open ? (
         <Section title="Update">
           <View className="gap-2">
-            {request.status === 'approved' ? <Button title="Send now" onPress={sendNow} loading={busy === 'send'} /> : null}
-            {request.status === 'sent' || request.status === 'overdue' ? (
+            {batch.status === 'approved' ? <Button title="Send now" onPress={sendNow} loading={busy === 'send'} /> : null}
+            {batch.status === 'sent' || batch.status === 'overdue' ? (
               <Button title="Practice confirmed" variant="secondary" onPress={confirm} loading={busy === 'confirm'} />
             ) : null}
-            {request.status === 'overdue' ? <Button title="Log a follow-up" variant="secondary" onPress={followUp} loading={busy === 'followup'} /> : null}
-            {request.status !== 'approved' ? <Button title="Received the delivery" onPress={received} loading={busy === 'received'} /> : null}
-            <Button title="Cancel request" variant="ghost" onPress={cancel} loading={busy === 'cancel'} />
+            {batch.status === 'overdue' ? <Button title="Log a follow-up" variant="secondary" onPress={followUp} loading={busy === 'followup'} /> : null}
+            {deliverable ? (
+              <Button title={openItems.length > 1 ? 'Received everything' : 'Received the delivery'} onPress={receivedAll} loading={busy === 'received'} />
+            ) : null}
+            <Button title="Cancel order" variant="ghost" onPress={cancel} loading={busy === 'cancel'} />
           </View>
         </Section>
       ) : null}
@@ -158,23 +206,35 @@ export default function OrderDetailScreen() {
                 <Muted>{formatDate(t.at!.slice(0, 10))}</Muted>
               </View>
             ))}
-          {request.follow_up_count > 0 ? (
+          {batch.follow_up_count > 0 ? (
             <View className="flex-row justify-between">
               <Body>Follow-ups</Body>
-              <Muted>{request.follow_up_count}</Muted>
+              <Muted>{batch.follow_up_count}</Muted>
             </View>
           ) : null}
         </Card>
       </Section>
 
-      {request.message_body ? (
+      {batch.message_body ? (
         <Section title="Message">
           <Card className="gap-2">
-            <Body className="font-semibold">{request.message_subject}</Body>
-            <Text className="font-mono text-xs leading-5 text-neutral-800 dark:text-neutral-200">{request.message_body}</Text>
+            <Body className="font-semibold">{batch.message_subject}</Body>
+            <Text className="font-mono text-xs leading-5 text-neutral-800 dark:text-neutral-200">{batch.message_body}</Text>
           </Card>
         </Section>
       ) : null}
     </Screen>
+  );
+}
+
+function LinkButton({ label, onPress, busy, tone = 'brand' }: { label: string; onPress: () => void; busy?: boolean; tone?: 'brand' | 'muted' }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} disabled={busy} hitSlop={8} className="px-1">
+      {busy ? (
+        <ActivityIndicator color="#0B5CAB" />
+      ) : (
+        <Text className={`text-base font-semibold ${tone === 'brand' ? 'text-brand-700 dark:text-brand-300' : 'text-neutral-500'}`}>{label}</Text>
+      )}
+    </Pressable>
   );
 }

@@ -112,6 +112,8 @@ export interface PrescriptionRow {
 
 export interface ReorderRequestRow {
   id: string;
+  /** Requests sent together in one message share a batch id. */
+  batch_id: string;
   medication_id: string;
   provider_id: string;
   prescription_id: string | null;

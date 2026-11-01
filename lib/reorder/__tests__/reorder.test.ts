@@ -4,7 +4,7 @@ import type { MedicationSupply } from '../../db/repo/supply';
 import type { MedicationRow } from '../../db/types';
 import { forecastSupply } from '../../supply/forecast';
 import { requestReference, suggestReorder } from '../draft';
-import { renderReorderMessage } from '../template';
+import { type ReorderItemInput, renderReorderMessage } from '../template';
 
 const TODAY = '2026-10-31';
 const NOW = '2026-10-31T08:00:00.000Z';
@@ -77,19 +77,23 @@ describe('suggestReorder', () => {
 });
 
 describe('renderReorderMessage', () => {
-  const base = {
-    providerKind: 'practice' as const,
-    patientReference: 'DP-1968',
+  const tacrolimus: ReorderItemInput = {
     medication: { name: 'Tacrolimus', strength: '1 mg', form: 'capsule', gtin: '7680000000014', pharmacode: null },
     packSize: 100,
     quantityPacks: 2,
     unitsRemaining: 22,
     runoutDate: '2026-11-03',
+    prescription: { status: 'valid', validUntil: '2027-01-31', refillsRemaining: null },
+  };
+  const base = {
+    providerKind: 'practice' as const,
+    patientReference: 'DP-1968',
+    items: [tacrolimus],
     neededBy: '2026-11-10',
-    prescription: { status: 'valid' as const, validUntil: '2027-01-31', refillsRemaining: null },
     note: null,
     reference: '3F9A1C2E',
   };
+  const withRx = (prescription: ReorderItemInput['prescription']) => ({ ...base, items: [{ ...tacrolimus, prescription }] });
 
   it('renders the German practice template with every field', () => {
     const { subject, body } = renderReorderMessage({ ...base, language: 'de' });
@@ -114,15 +118,40 @@ describe('renderReorderMessage', () => {
     expect(pharmacy.body).toContain('Quantity: 2 packs');
     expect(pharmacy.body).toContain('Note: Please call when ready');
 
-    expect(renderReorderMessage({ ...base, language: 'en', prescription: { status: 'none', validUntil: null, refillsRemaining: null } }).body).toContain(
-      'Prescription: none on file',
-    );
-    expect(renderReorderMessage({ ...base, language: 'de', prescription: { status: 'exhausted', validUntil: null, refillsRemaining: 0 } }).body).toContain(
-      'keine Repetition mehr',
-    );
-    expect(renderReorderMessage({ ...base, language: 'de', prescription: { status: 'expired', validUntil: '2026-09-01', refillsRemaining: null } }).body).toContain(
+    expect(renderReorderMessage({ ...withRx({ status: 'none', validUntil: null, refillsRemaining: null }), language: 'en' }).body).toContain('Prescription: none on file');
+    expect(renderReorderMessage({ ...withRx({ status: 'exhausted', validUntil: null, refillsRemaining: 0 }), language: 'de' }).body).toContain('keine Repetition mehr');
+    expect(renderReorderMessage({ ...withRx({ status: 'expired', validUntil: '2026-09-01', refillsRemaining: null }), language: 'de' }).body).toContain(
       'abgelaufen am 01.09.2026',
     );
+  });
+
+  it('lists several medications as one numbered request with a shared pickup', () => {
+    const mycophenolate: ReorderItemInput = {
+      medication: { name: 'Mycophenolate mofetil 500 mg', strength: '500 mg', form: 'tablet', gtin: null, pharmacode: '1234567' },
+      packSize: 150,
+      quantityPacks: 3,
+      unitsRemaining: 300,
+      runoutDate: '2027-01-15',
+      prescription: { status: 'expired', validUntil: '2026-10-01', refillsRemaining: null },
+      shortage: { status: 'bis Ende Jahr' },
+    };
+    const { subject, body } = renderReorderMessage({ ...base, language: 'de', items: [tacrolimus, mycophenolate] });
+    expect(subject).toBe('Nachbestellung 2 Medikamente – Patient DP-1968');
+    expect(body).toContain('der folgenden Medikamente (Abholung zusammen)');
+    expect(body).toContain('Benötigt bis: 10.11.2026');
+    expect(body).toContain('1. Tacrolimus 1 mg capsule');
+    expect(body).toContain('   Menge: 2 Packungen');
+    expect(body).toContain('2. Mycophenolate mofetil 500 mg tablet');
+    expect(body).toContain('   Pharmacode: 1234567');
+    expect(body).toContain('   Rezept: abgelaufen am 01.10.2026');
+    expect(body).toContain('   Hinweis: Lieferengpass gemeldet (bis Ende Jahr)');
+    // The single-item layout is not used for lists.
+    expect(body).not.toContain('Medikament: ');
+    expect(body.indexOf('1. Tacrolimus')).toBeLessThan(body.indexOf('2. Mycophenolate'));
+
+    const en = renderReorderMessage({ ...base, language: 'en', providerKind: 'pharmacy', items: [tacrolimus, mycophenolate] });
+    expect(en.subject).toBe('Reorder 2 medications – patient DP-1968');
+    expect(en.body).toContain('to be collected together');
   });
 
   it('never talks about doses or what to take', () => {
@@ -140,9 +169,7 @@ describe('api stub', () => {
       language: 'de',
       patient_reference: null,
       provider: { kind: 'practice', name: 'P', email: null },
-      medication: { name: 'X', strength: null, form: null, gtin: null, pharmacode: null },
-      quantity_packs: 1,
-      units_remaining: null,
+      items: [{ medication: { name: 'X', strength: null, form: null, gtin: null, pharmacode: null }, quantity_packs: 1, units_remaining: null, needed_by: null }],
       needed_by: null,
       message: { subject: 's', body: 'b' },
     });

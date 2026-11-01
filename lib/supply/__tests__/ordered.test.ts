@@ -29,6 +29,7 @@ const medication: MedicationRow = {
 function request(overrides: Partial<ReorderRequestRow>): ReorderRequestRow {
   return {
     id: 'r1',
+    batch_id: 'r1',
     medication_id: 'm1',
     provider_id: 'prov1',
     prescription_id: null,
@@ -78,7 +79,7 @@ describe('open reorder', () => {
     expect(f.status).toBe('ordered');
     expect(f.next_action).toBe('await_delivery');
     expect(f.action_by).toBe(addDays(TODAY, 5));
-    expect(f.open_order).toEqual({ request_id: 'r1', status: 'sent', expected_by: addDays(TODAY, 5), overdue: false });
+    expect(f.open_order).toEqual({ request_id: 'r1', batch_id: 'r1', status: 'sent', expected_by: addDays(TODAY, 5), overdue: false });
     expect(describeAction(f)).toBe(`Ordered · expected ${addDays(TODAY, 5).split('-').reverse().join('.')}`);
     expect(forecastTone(f)).toBe('ok');
   });

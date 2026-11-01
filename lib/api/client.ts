@@ -1,14 +1,22 @@
 import type { ProviderKind, ReorderLanguage } from '../db/types';
 import { getApiBaseUrl } from './config';
 
+export interface ReorderPayloadItem {
+  medication: { name: string; strength: string | null; form: string | null; gtin: string | null; pharmacode: string | null };
+  quantity_packs: number;
+  units_remaining: number | null;
+  needed_by: string | null;
+}
+
+/** One batch: every medication ordered together from one supplier. */
 export interface ReorderPayload {
+  /** The batch id; the server derives its short reference from it. */
   request_id: string;
   language: ReorderLanguage;
   patient_reference: string | null;
   provider: { kind: ProviderKind; name: string; email: string | null };
-  medication: { name: string; strength: string | null; form: string | null; gtin: string | null; pharmacode: string | null };
-  quantity_packs: number;
-  units_remaining: number | null;
+  items: ReorderPayloadItem[];
+  /** Earliest needed-by date across the items. */
   needed_by: string | null;
   message: { subject: string; body: string };
 }

@@ -54,7 +54,7 @@ backend/
 
 ## What the server stores
 
-Only what a practice needs to act on one approved request: the templated message, provider contact, medication identity, quantity and dates, plus the patient's short reference. No medication lists, no dose history, no names in logs.
+Only what a practice needs to act on one approved order: the templated message, provider contact, the medications in that order with quantity and dates, plus the patient's short reference. An order can hold several medications (patients collect them together), but never the full list, no dose history, no names in logs.
 
 ## Manual test
 
@@ -64,8 +64,9 @@ curl -s -X POST https://api.easy-medrefill.com/v1/reorders \
   -H "X-Api-Key: $KEY" -H "Content-Type: application/json" \
   -d '{"request_id":"3f9a1c2e-0000-4000-8000-000000000001","language":"de","patient_reference":"DP-1968",
        "provider":{"kind":"pharmacy","name":"Test Apotheke","email":"you@example.com"},
-       "medication":{"name":"Testmedikament","strength":"1 mg","form":"Tablette","gtin":null,"pharmacode":null},
-       "quantity_packs":1,"units_remaining":9,"needed_by":"2026-11-10",
+       "items":[{"medication":{"name":"Testmedikament","strength":"1 mg","form":"Tablette","gtin":null,"pharmacode":null},
+                 "quantity_packs":1,"units_remaining":9,"needed_by":"2026-11-10"}],
+       "needed_by":"2026-11-10",
        "message":{"subject":"Nachbestellung Test","body":"Guten Tag\n\nTestanfrage.\n\nFreundliche Grüsse"}}'
 curl -s https://api.easy-medrefill.com/v1/reorders/3F9A1C2E -H "X-Api-Key: $KEY"
 ```

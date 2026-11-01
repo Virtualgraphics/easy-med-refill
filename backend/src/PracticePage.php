@@ -14,7 +14,11 @@ final class PracticePage
     {
         $de = $request['language'] === 'de';
         $payload = json_decode((string) $request['payload'], true) ?: [];
-        $med = $payload['medication'] ?? [];
+        $items = is_array($payload['items'] ?? null) ? $payload['items'] : [];
+        if ($items === [] && isset($payload['medication'])) {
+            // Requests stored before orders could hold several medications.
+            $items = [['medication' => $payload['medication'], 'quantity_packs' => $payload['quantity_packs'] ?? null]];
+        }
         $confirmed = $request['status'] === 'confirmed';
 
         $t = $de
@@ -23,6 +27,7 @@ final class PracticePage
                 'intro' => 'Eine Patientin oder ein Patient hat über Easy MedRefill folgende Anfrage gesendet.',
                 'patient' => 'Patient',
                 'medication' => 'Medikament',
+                'medications' => 'Medikamente',
                 'quantity' => 'Menge',
                 'packs' => 'Packung(en)',
                 'needed' => 'Benötigt bis',
@@ -38,6 +43,7 @@ final class PracticePage
                 'intro' => 'A patient sent the following request through Easy MedRefill.',
                 'patient' => 'Patient',
                 'medication' => 'Medication',
+                'medications' => 'Medications',
                 'quantity' => 'Quantity',
                 'packs' => 'pack(s)',
                 'needed' => 'Needed by',
@@ -50,7 +56,25 @@ final class PracticePage
             ];
 
         $e = static fn(mixed $v): string => htmlspecialchars((string) ($v ?? '–'), ENT_QUOTES, 'UTF-8');
-        $medLine = trim(implode(' ', array_filter([$med['name'] ?? '', $med['strength'] ?? '', $med['form'] ?? ''])));
+        $medLine = static function (array $med): string {
+            $name = (string) ($med['name'] ?? '');
+            $parts = [$name];
+            foreach (['strength', 'form'] as $key) {
+                $part = (string) ($med[$key] ?? '');
+                if ($part !== '' && mb_stripos($name, $part) === false) {
+                    $parts[] = $part;
+                }
+            }
+            return trim(implode(' ', $parts));
+        };
+        $itemRows = '';
+        foreach ($items as $item) {
+            $med = is_array($item['medication'] ?? null) ? $item['medication'] : [];
+            $code = $med['gtin'] ?? $med['pharmacode'] ?? null;
+            $itemRows .= '<tr><td>' . $e($medLine($med)) . ($code ? '<br><small>' . $e($code) . '</small>' : '') . '</td>'
+                . '<td class="num">' . $e($item['quantity_packs'] ?? null) . ' ' . $e($t['packs']) . '</td></tr>';
+        }
+        $itemsLabel = count($items) === 1 ? $t['medication'] : $t['medications'];
         $notice = $justConfirmed ? $t['confirmed'] : ($confirmed ? $t['already'] : null);
         $action = rtrim((string) ($_SERVER['REQUEST_URI'] ?? ''), '/');
         $action = preg_replace('#/confirm$#', '', $action) . '/confirm';
@@ -74,6 +98,11 @@ final class PracticePage
   dl { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; margin: 0; }
   dt { color: #666; } dd { margin: 0; font-weight: 600; }
   pre { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Consolas, monospace; margin: 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th { text-align: left; color: #666; font-weight: normal; padding: 6px 0; border-bottom: 1px solid #ddd; }
+  td { padding: 8px 0; border-bottom: 1px solid #eee; font-weight: 600; vertical-align: top; }
+  td small { color: #666; font-weight: normal; }
+  .num { text-align: right; white-space: nowrap; }
   button { background: #0B5CAB; color: #fff; border: 0; border-radius: 12px; padding: 14px 20px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; }
   .notice { background: #DCFCE7; border-radius: 12px; padding: 12px 16px; color: #166534; font-weight: 600; }
   footer { color: #666; font-size: 12px; text-align: center; margin: 24px 0; }
@@ -88,11 +117,13 @@ final class PracticePage
   <div class="card">
     <dl>
       <dt>{$e($t['patient'])}</dt><dd>{$e($request['patient_reference'])}</dd>
-      <dt>{$e($t['medication'])}</dt><dd>{$e($medLine)}</dd>
-      <dt>{$e($t['quantity'])}</dt><dd>{$e($payload['quantity_packs'] ?? null)} {$e($t['packs'])}</dd>
       <dt>{$e($t['needed'])}</dt><dd>{$e($request['needed_by'])}</dd>
       <dt>{$e($t['reference'])}</dt><dd>{$e($request['reference'])}</dd>
     </dl>
+    <table>
+      <thead><tr><th>{$e($itemsLabel)}</th><th class="num">{$e($t['quantity'])}</th></tr></thead>
+      <tbody>{$itemRows}</tbody>
+    </table>
   </div>
   {$buttonHtml}
   <div class="card" style="margin-top:16px">

@@ -32,6 +32,8 @@ const OPEN_ORDER_STATUSES: readonly ReorderStatus[] = ['approved', 'sent', 'conf
 
 export interface OpenOrder {
   request_id: string;
+  /** The order (batch) the request belongs to; what the order screen opens. */
+  batch_id: string;
   status: ReorderStatus;
   expected_by: IsoDate | null;
   /** No confirmation within the lead time. */
@@ -120,7 +122,7 @@ export function forecastSupply({ supply, leadTimeDays, shortage = false, today =
   const request = supply.open_request;
   const openOrder: OpenOrder | null =
     request && OPEN_ORDER_STATUSES.includes(request.status)
-      ? { request_id: request.id, status: request.status, expected_by: request.expected_by, overdue: request.status === 'overdue' }
+      ? { request_id: request.id, batch_id: request.batch_id, status: request.status, expected_by: request.expected_by, overdue: request.status === 'overdue' }
       : null;
 
   let nextAction: NextAction = 'none';

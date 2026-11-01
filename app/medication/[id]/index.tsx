@@ -91,7 +91,7 @@ export default function MedicationDetailScreen() {
     await reload();
   };
 
-  const go = (screen: 'edit' | 'pack' | 'dose' | 'prescription' | 'reorder') =>
+  const go = (screen: 'edit' | 'pack' | 'dose' | 'prescription') =>
     router.push({ pathname: `/medication/[id]/${screen}`, params: { id } });
 
   const doseLine = schedule
@@ -153,9 +153,9 @@ export default function MedicationDetailScreen() {
         </View>
 
         {openRequest ? (
-          <Button title="View open reorder" variant="secondary" onPress={() => router.push({ pathname: '/order/[id]', params: { id: openRequest.id } })} />
+          <Button title="View open reorder" variant="secondary" onPress={() => router.push({ pathname: '/order/[id]', params: { id: openRequest.batch_id } })} />
         ) : (
-          <Button title="Reorder" onPress={() => go('reorder')} />
+          <Button title="Reorder" onPress={() => router.push({ pathname: '/reorder', params: { medicationId: id } })} />
         )}
       </Card>
 

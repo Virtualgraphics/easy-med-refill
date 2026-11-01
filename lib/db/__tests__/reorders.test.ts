@@ -1,23 +1,32 @@
 import { addDays, todayIso } from '../clock';
 import {
   addPack,
+  batchStatus,
+  cancelReorderBatch,
   cancelReorderRequest,
   canTransition,
   createMedication,
   createProvider,
+  createReorderBatch,
   createReorderRequest,
   detectOverdueReorders,
   ensureDefaultProfile,
   getOpenReorderRequest,
   getProvider,
+  getReorderBatch,
   getReorderRequest,
   getSupplyOverview,
+  listReorderBatches,
   listReorderRequests,
+  markBatchConfirmed,
+  markBatchReceived,
+  markBatchSent,
   markReorderConfirmed,
   markReorderReceived,
   markReorderSent,
   recordFollowUp,
   ReorderTransitionError,
+  setBatchMessage,
 } from '../repo';
 import { createNodeClient, type NodeDbClient } from '../testing/nodeClient';
 
@@ -150,5 +159,102 @@ describe('overdue detection and learned lead time', () => {
     await markReorderReceived(db, r2.id, addDays(today, 9));
     // weighted: (3*2 + 9) / 3 = 5
     expect((await getProvider(db, providerId))?.learned_lead_time_days).toBe(5);
+  });
+});
+
+describe('batches', () => {
+  async function twoMedBatch() {
+    const second = (await createMedication(db, { profile_id: profileId, name: 'Aspirin', preferred_provider_id: providerId })).id;
+    const rows = await createReorderBatch(
+      db,
+      {
+        provider_id: providerId,
+        language: 'de',
+        note: 'bitte zusammen',
+        items: [
+          { medication_id: medicationId, quantity_packs: 2, units_remaining_at_request: 12, needed_by: addDays(today, 10) },
+          { medication_id: second, quantity_packs: 1, units_remaining_at_request: 5, needed_by: addDays(today, 4) },
+        ],
+      },
+      { approve: true },
+    );
+    return { rows, second };
+  }
+
+  it('creates one request per medication under a shared batch id', async () => {
+    const { rows } = await twoMedBatch();
+    expect(rows).toHaveLength(2);
+    expect(rows[0].batch_id).toBe(rows[1].batch_id);
+    expect(rows[0].id).not.toBe(rows[1].id);
+    expect(rows.every((r) => r.status === 'approved' && r.note === 'bitte zusammen')).toBe(true);
+
+    const batch = await getReorderBatch(db, rows[0].batch_id);
+    expect(batch?.items.map((i) => i.medication_name)).toEqual(['Aspirin', 'Med']);
+    expect(batch?.status).toBe('approved');
+    expect(batch?.needed_by).toBe(addDays(today, 4));
+    expect(await getOpenReorderRequest(db, medicationId)).toMatchObject({ batch_id: rows[0].batch_id });
+  });
+
+  it('a single request is a batch of its own', async () => {
+    const r = await create(true);
+    expect(r.batch_id).toBe(r.id);
+    expect((await getReorderBatch(db, r.id))?.items).toHaveLength(1);
+  });
+
+  it('moves the whole batch through sent and confirmed, and learns lead time once on receipt', async () => {
+    const { rows } = await twoMedBatch();
+    const batchId = rows[0].batch_id;
+    await setBatchMessage(db, batchId, { subject: 'S2', body: 'B2' });
+    await markBatchSent(db, batchId, { server_reference: 'REF-9', expected_by: addDays(today, 5) });
+    let batch = await getReorderBatch(db, batchId);
+    expect(batch?.status).toBe('sent');
+    expect(batch?.server_reference).toBe('REF-9');
+    expect(batch?.message_body).toBe('B2');
+    expect(batch?.items.every((i) => i.status === 'sent' && i.server_reference === 'REF-9')).toBe(true);
+
+    await markBatchConfirmed(db, batchId);
+    expect((await getReorderBatch(db, batchId))?.status).toBe('confirmed');
+
+    await markBatchReceived(db, batchId, addDays(today, 4));
+    batch = await getReorderBatch(db, batchId);
+    expect(batch?.status).toBe('received');
+    expect(batch?.received_at).not.toBeNull();
+    // Learned once from the batch, not once per item.
+    expect((await getProvider(db, providerId))?.learned_lead_time_days).toBe(4);
+  });
+
+  it('keeps the batch open while one item is still outstanding', async () => {
+    const { rows } = await twoMedBatch();
+    const batchId = rows[0].batch_id;
+    await markBatchSent(db, batchId, { server_reference: null, expected_by: null });
+    await markReorderReceived(db, rows[0].id, today, { learnLeadTime: false });
+    const batch = await getReorderBatch(db, batchId);
+    expect(batch?.status).toBe('sent');
+    expect(batch?.items.map((i) => i.status).sort()).toEqual(['received', 'sent']);
+
+    await cancelReorderBatch(db, batchId);
+    const closed = await getReorderBatch(db, batchId);
+    expect(closed?.status).toBe('received');
+    expect(closed?.items.map((i) => i.status).sort()).toEqual(['cancelled', 'received']);
+  });
+
+  it('derives a closing status from the items', () => {
+    expect(batchStatus([{ status: 'received' }, { status: 'cancelled' }])).toBe('received');
+    expect(batchStatus([{ status: 'cancelled' }, { status: 'cancelled' }])).toBe('cancelled');
+    expect(batchStatus([{ status: 'received' }, { status: 'overdue' }])).toBe('overdue');
+  });
+
+  it('lists open and closed batches separately, newest first', async () => {
+    const older = await create(true);
+    await markReorderSent(db, older.id, { server_reference: null, expected_by: null });
+    await markReorderReceived(db, older.id);
+    const { rows } = await twoMedBatch();
+
+    const open = await listReorderBatches(db, profileId, { active: true });
+    const closed = await listReorderBatches(db, profileId, { active: false });
+    expect(open.map((b) => b.batch_id)).toEqual([rows[0].batch_id]);
+    expect(open[0].items).toHaveLength(2);
+    expect(closed.map((b) => b.batch_id)).toEqual([older.id]);
+    expect(await listReorderBatches(db, profileId)).toHaveLength(2);
   });
 });

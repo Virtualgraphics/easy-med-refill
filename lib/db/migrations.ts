@@ -208,6 +208,18 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE reorder_requests ADD COLUMN expected_by TEXT;
     `,
   },
+  {
+    version: 4,
+    name: 'reorder-batches',
+    // Several medications are ordered together from one supplier (pickup,
+    // not mail). Rows sent together share a batch id; older rows form a
+    // batch of their own.
+    sql: `
+      ALTER TABLE reorder_requests ADD COLUMN batch_id TEXT NOT NULL DEFAULT '';
+      UPDATE reorder_requests SET batch_id = id WHERE batch_id = '';
+      CREATE INDEX idx_reorder_requests_batch ON reorder_requests(batch_id);
+    `,
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1].version;

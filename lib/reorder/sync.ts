@@ -1,25 +1,26 @@
 /**
- * Pulls server-side status for open requests (confirmed by the practice,
- * follow-ups sent) into the local database. Offline or stub mode: no-op.
+ * Pulls server-side status for open batches (confirmed by the practice,
+ * follow-ups sent) into the local database. One server reference covers
+ * every medication in the batch. Offline or stub mode: no-op.
  */
 import { fetchReorderStatus, isStubMode } from '../api';
 import type { DbClient } from '../db/client';
-import { listReorderRequests, markReorderConfirmed, setFollowUpCount } from '../db/repo/reorders';
+import { listReorderBatches, markBatchConfirmed, setBatchFollowUpCount } from '../db/repo/reorders';
 
 export async function syncReorderStatuses(db: DbClient, profileId: string): Promise<number> {
   if (isStubMode()) return 0;
-  const open = await listReorderRequests(db, profileId, { active: true });
+  const open = await listReorderBatches(db, profileId, { active: true });
   let changed = 0;
-  for (const request of open) {
-    if (!request.server_reference || !['sent', 'overdue'].includes(request.status)) continue;
+  for (const batch of open) {
+    if (!batch.server_reference || !['sent', 'overdue'].includes(batch.status)) continue;
     try {
-      const remote = await fetchReorderStatus(request.server_reference);
+      const remote = await fetchReorderStatus(batch.server_reference);
       if (!remote) continue;
       if (remote.status === 'confirmed') {
-        await markReorderConfirmed(db, request.id);
+        await markBatchConfirmed(db, batch.batch_id);
         changed++;
-      } else if (remote.follow_up_count > request.follow_up_count) {
-        await setFollowUpCount(db, request.id, remote.follow_up_count);
+      } else if (remote.follow_up_count > batch.follow_up_count) {
+        await setBatchFollowUpCount(db, batch.batch_id, remote.follow_up_count);
         changed++;
       }
     } catch {

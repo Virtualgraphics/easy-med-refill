@@ -133,13 +133,47 @@ final class Api
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $fail('provider.email must be a valid address');
         }
-        $medication = is_array($in['medication'] ?? null) ? $in['medication'] : [];
-        if (trim((string) ($medication['name'] ?? '')) === '') {
-            $fail('medication.name is required');
+        // One request covers every medication ordered together (pickup, not
+        // mail). Older app builds sent a single top-level medication.
+        $rawItems = $in['items'] ?? null;
+        if (!is_array($rawItems) && isset($in['medication'])) {
+            $rawItems = [[
+                'medication' => $in['medication'],
+                'quantity_packs' => $in['quantity_packs'] ?? null,
+                'units_remaining' => $in['units_remaining'] ?? null,
+                'needed_by' => $in['needed_by'] ?? null,
+            ]];
         }
-        $quantity = $in['quantity_packs'] ?? null;
-        if (!is_int($quantity) || $quantity < 1 || $quantity > 99) {
-            $fail('quantity_packs must be a whole number between 1 and 99');
+        if (!is_array($rawItems) || count($rawItems) < 1 || count($rawItems) > 20) {
+            $fail('items must list between 1 and 20 medications');
+        }
+        $items = [];
+        foreach (array_values($rawItems) as $index => $item) {
+            $item = is_array($item) ? $item : [];
+            $medication = is_array($item['medication'] ?? null) ? $item['medication'] : [];
+            if (trim((string) ($medication['name'] ?? '')) === '') {
+                $fail("items[$index].medication.name is required");
+            }
+            $quantity = $item['quantity_packs'] ?? null;
+            if (!is_int($quantity) || $quantity < 1 || $quantity > 99) {
+                $fail("items[$index].quantity_packs must be a whole number between 1 and 99");
+            }
+            $itemNeededBy = $item['needed_by'] ?? null;
+            if ($itemNeededBy !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $itemNeededBy)) {
+                $fail("items[$index].needed_by must be YYYY-MM-DD");
+            }
+            $items[] = [
+                'medication' => [
+                    'name' => mb_substr(trim((string) $medication['name']), 0, 190),
+                    'strength' => self::optionalString($medication['strength'] ?? null, 64),
+                    'form' => self::optionalString($medication['form'] ?? null, 64),
+                    'gtin' => self::optionalString($medication['gtin'] ?? null, 14),
+                    'pharmacode' => self::optionalString($medication['pharmacode'] ?? null, 16),
+                ],
+                'quantity_packs' => $quantity,
+                'units_remaining' => is_numeric($item['units_remaining'] ?? null) ? (float) $item['units_remaining'] : null,
+                'needed_by' => $itemNeededBy === null ? null : (string) $itemNeededBy,
+            ];
         }
         $message = is_array($in['message'] ?? null) ? $in['message'] : [];
         if (trim((string) ($message['subject'] ?? '')) === '' || trim((string) ($message['body'] ?? '')) === '') {
@@ -160,15 +194,7 @@ final class Api
                 'name' => mb_substr(trim((string) $provider['name']), 0, 190),
                 'email' => mb_substr($email, 0, 190),
             ],
-            'medication' => [
-                'name' => mb_substr(trim((string) $medication['name']), 0, 190),
-                'strength' => self::optionalString($medication['strength'] ?? null, 64),
-                'form' => self::optionalString($medication['form'] ?? null, 64),
-                'gtin' => self::optionalString($medication['gtin'] ?? null, 14),
-                'pharmacode' => self::optionalString($medication['pharmacode'] ?? null, 16),
-            ],
-            'quantity_packs' => $quantity,
-            'units_remaining' => is_numeric($in['units_remaining'] ?? null) ? (float) $in['units_remaining'] : null,
+            'items' => $items,
             'needed_by' => $neededBy === null ? null : (string) $neededBy,
             'message' => [
                 'subject' => mb_substr(trim((string) $message['subject']), 0, 255),
