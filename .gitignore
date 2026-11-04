@@ -52,3 +52,6 @@ backend/config/config.php
 
 # local env files (API URL and key)
 .env
+
+# Dreamweaver sync metadata
+_notes/

@@ -6,7 +6,8 @@ Plain PHP 8.1+, no framework, no Composer. MariaDB. Deploys as a file upload to 
 
 ```
 backend/
-  public/        web root of api.easy-medrefill.com (index.php, .htaccess)
+  index.php      front controller (web root of api.easy-medrefill.com is this folder)
+  .htaccess      HTTPS redirect, routing, denies src/ config/ cron/ schema.sql
   src/           application code
   config/        config.example.php -> copy to config.php (gitignored)
   cron/          send-reorders.php, follow-ups.php, fetch-shortages.php
@@ -16,9 +17,7 @@ backend/
 ## Deploy
 
 1. Upload the whole `backend` folder to the web space, for example as `~/www/api.easy-medrefill.com`.
-2. In the Hostpoint control panel, point the subdomain `api.easy-medrefill.com` at either:
-   - the **`public`** subfolder (preferred: code and config stay outside the web root), or
-   - the `backend` folder itself. The root `index.php` and `.htaccess` handle this case, and `src/`, `config/` and `cron/` carry a `Require all denied` so they are never served.
+2. In the Hostpoint control panel, point the subdomain `api.easy-medrefill.com` at that folder. `src/`, `config/` and `cron/` each carry a `Require all denied` and the root `.htaccess` blocks them too, so they are never served.
 3. Copy `config/config.example.php` to `config/config.php` and fill in the database password, the mailbox password and an API key (`openssl rand -hex 32`).
 4. Create the tables: import `schema.sql` in phpMyAdmin, or `mysql -h ehozimoc.mysql.db.internal -u ehozimoc_medi -p ehozimoc_easymedrefill < schema.sql`.
 5. Check `https://api.easy-medrefill.com/health` returns `{"ok":true,...}`.
@@ -30,7 +29,7 @@ backend/
 0 */6 * * *   php ~/www/api.easy-medrefill.com/cron/fetch-shortages.php
 ```
 
-7. In the app, set `EXPO_PUBLIC_API_URL=https://api.easy-medrefill.com` and `EXPO_PUBLIC_API_KEY=<the key>` in `.env.local`, restart Metro.
+7. In the app, set `EXPO_PUBLIC_API_URL=https://api.easy-medrefill.com` and `EXPO_PUBLIC_API_KEY=<the key>` in `.env` (see `.env.example`), restart Metro.
 
 ## Endpoints
 
