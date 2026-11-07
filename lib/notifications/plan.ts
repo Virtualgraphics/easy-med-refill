@@ -7,6 +7,7 @@
  */
 import { addDays } from '../db/clock';
 import type { IsoDate } from '../db/types';
+import { t } from '../i18n/translate';
 import type { SupplyForecast } from '../supply/forecast';
 
 export interface PlannedReminder {
@@ -56,19 +57,7 @@ export const REMINDER_TITLE = 'Easy MedRefill';
 
 export function reminderBody(reminder: PlannedReminder): string {
   const parts: string[] = [];
-  if (reminder.due > 0) {
-    parts.push(
-      reminder.due === 1
-        ? '1 medication needs a reorder or prescription renewal today'
-        : `${reminder.due} medications need a reorder or prescription renewal today`,
-    );
-  }
-  if (reminder.outstanding > 0) {
-    parts.push(
-      reminder.outstanding === 1
-        ? '1 medication still needs attention'
-        : `${reminder.outstanding} medications still need attention`,
-    );
-  }
-  return `${parts.join('. ')}. Open the app for details.`;
+  if (reminder.due > 0) parts.push(t('dashboard.reminderDue', { count: reminder.due }));
+  if (reminder.outstanding > 0) parts.push(t('dashboard.reminderOutstanding', { count: reminder.outstanding }));
+  return `${parts.join('. ')}. ${t('dashboard.reminderOpenApp')}`;
 }

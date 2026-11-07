@@ -6,6 +6,7 @@ import { MedicationForm } from '@/components/forms/MedicationForm';
 import { Button, Muted, Screen } from '@/components/ui';
 import { archiveMedication, deleteMedication, getMedication, listProviders, updateMedication, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
+import { useI18n } from '@/lib/i18n';
 import { useProfile } from '@/lib/profile/ProfileContext';
 
 export default function EditMedicationScreen() {
@@ -13,6 +14,7 @@ export default function EditMedicationScreen() {
   const router = useRouter();
   const db = useDb();
   const { profile } = useProfile();
+  const { t } = useI18n();
   const medication = useDbQuery((d) => getMedication(d, id), [id]);
   const providers = useDbQuery((d) => listProviders(d, profile.id), [profile.id]);
 
@@ -20,17 +22,17 @@ export default function EditMedicationScreen() {
     return (
       <Screen>
         <View className="flex-1 items-center justify-center">
-          {medication.loading ? <ActivityIndicator color="#0B5CAB" /> : <Muted>Medication not found.</Muted>}
+          {medication.loading ? <ActivityIndicator color="#0B5CAB" /> : <Muted>{t('medication.notFound')}</Muted>}
         </View>
       </Screen>
     );
   }
 
   const archive = () => {
-    Alert.alert('Archive medication?', 'It disappears from the list but its history is kept.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('medication.archiveTitle'), t('medication.archiveBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Archive',
+        text: t('medication.archive'),
         onPress: async () => {
           await archiveMedication(db, id);
           router.dismissTo('/');
@@ -40,10 +42,10 @@ export default function EditMedicationScreen() {
   };
 
   const remove = () => {
-    Alert.alert('Delete medication?', 'Packs, prescriptions and dose history are deleted with it. This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('medication.deleteTitle'), t('medication.deleteBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           await deleteMedication(db, id);
@@ -58,15 +60,15 @@ export default function EditMedicationScreen() {
       <MedicationForm
         initial={medication.data}
         providers={providers.data ?? []}
-        submitLabel="Save changes"
+        submitLabel={t('medication.saveChanges')}
         onSubmit={async (values) => {
           await updateMedication(db, id, values);
           router.back();
         }}
       />
       <View className="gap-3 pt-4">
-        <Button title="Archive medication" variant="secondary" onPress={archive} />
-        <Button title="Delete medication" variant="danger" onPress={remove} />
+        <Button title={t('medication.archiveMedication')} variant="secondary" onPress={archive} />
+        <Button title={t('medication.deleteMedication')} variant="danger" onPress={remove} />
       </View>
     </Screen>
   );

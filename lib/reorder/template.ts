@@ -5,6 +5,8 @@
  *
  * One message covers every medication ordered together from a supplier:
  * a single item reads as a short letter, several items as a numbered list.
+ * Languages: German, English, French, Italian (the supplier's language,
+ * chosen per order; defaults to the app language).
  */
 import { formatDate, formatUnits } from '../db/format';
 import type { IsoDate, ProviderKind, ReorderLanguage } from '../db/types';
@@ -36,10 +38,42 @@ export interface ReorderMessage {
   body: string;
 }
 
-const T = {
+interface Texts {
+  subject: (name: string, ref: string | null) => string;
+  subjectMany: (n: number, ref: string | null) => string;
+  greeting: string;
+  intro: Record<ProviderKind, string>;
+  introMany: Record<ProviderKind, string>;
+  patient: string;
+  medication: string;
+  gtin: string;
+  pharmacode: string;
+  pack: string;
+  quantity: string;
+  packs: (n: number) => string;
+  units: (n: number | null) => string;
+  stock: string;
+  until: (d: IsoDate) => string;
+  neededBy: string;
+  prescription: string;
+  rx: {
+    none: string;
+    expired: (d: IsoDate | null) => string;
+    exhausted: string;
+    valid: (d: IsoDate | null, r: number | null) => string;
+  };
+  note: string;
+  reference: string;
+  shortage: (status: string | null) => string;
+  shortageShort: (status: string | null) => string;
+  footer: string;
+  closing: string;
+}
+
+const T: Record<ReorderLanguage, Texts> = {
   de: {
-    subject: (name: string, ref: string | null) => `Nachbestellung ${name}${ref ? ` – Patient ${ref}` : ''}`,
-    subjectMany: (n: number, ref: string | null) => `Nachbestellung ${n} Medikamente${ref ? ` – Patient ${ref}` : ''}`,
+    subject: (name, ref) => `Nachbestellung ${name}${ref ? ` – Patient ${ref}` : ''}`,
+    subjectMany: (n, ref) => `Nachbestellung ${n} Medikamente${ref ? ` – Patient ${ref}` : ''}`,
     greeting: 'Guten Tag',
     intro: {
       practice: 'Ich bitte um ein Rezept bzw. die Nachbestellung des folgenden Medikaments:',
@@ -55,31 +89,30 @@ const T = {
     pharmacode: 'Pharmacode',
     pack: 'Packung',
     quantity: 'Menge',
-    packs: (n: number) => (n === 1 ? '1 Packung' : `${n} Packungen`),
-    units: (n: number | null) => (n === null ? 'unbekannt' : `${formatUnits(n)} Stk`),
+    packs: (n) => (n === 1 ? '1 Packung' : `${n} Packungen`),
+    units: (n) => (n === null ? 'unbekannt' : `${formatUnits(n)} Stk`),
     stock: 'Aktueller Vorrat',
-    until: (d: IsoDate) => `reicht bis ca. ${formatDate(d)}`,
+    until: (d) => `reicht bis ca. ${formatDate(d)}`,
     neededBy: 'Benötigt bis',
     prescription: 'Rezept',
     rx: {
       none: 'kein Rezept vorhanden, bitte neu ausstellen',
-      expired: (d: IsoDate | null) => `abgelaufen${d ? ` am ${formatDate(d)}` : ''}, bitte neu ausstellen`,
+      expired: (d) => `abgelaufen${d ? ` am ${formatDate(d)}` : ''}, bitte neu ausstellen`,
       exhausted: 'keine Repetition mehr möglich, bitte neu ausstellen',
-      valid: (d: IsoDate | null, r: number | null) =>
-        `gültig${d ? ` bis ${formatDate(d)}` : ''}${r !== null ? `, ${r} Repetition${r === 1 ? '' : 'en'} übrig` : ''}`,
+      valid: (d, r) => `gültig${d ? ` bis ${formatDate(d)}` : ''}${r !== null ? `, ${r} Repetition${r === 1 ? '' : 'en'} übrig` : ''}`,
     },
     note: 'Bemerkung',
     reference: 'Referenz',
-    shortage: (status: string | null) =>
+    shortage: (status) =>
       `Hinweis: Für dieses Präparat ist ein Lieferengpass gemeldet${status ? ` (${status})` : ''}. Ich bitte deshalb um frühzeitige Bearbeitung und um Rücksprache, falls die Lieferung nicht möglich ist.`,
-    shortageShort: (status: string | null) => `Hinweis: Lieferengpass gemeldet${status ? ` (${status})` : ''}, bitte um frühzeitige Bearbeitung und Rücksprache, falls nicht lieferbar.`,
+    shortageShort: (status) => `Hinweis: Lieferengpass gemeldet${status ? ` (${status})` : ''}, bitte um frühzeitige Bearbeitung und Rücksprache, falls nicht lieferbar.`,
     footer:
       'Diese Anfrage wurde mit Easy MedRefill erstellt. Bitte bestätigen Sie den Eingang über den Link unten oder kurz per Antwort auf diese E-Mail.',
     closing: 'Freundliche Grüsse',
   },
   en: {
-    subject: (name: string, ref: string | null) => `Reorder ${name}${ref ? ` – patient ${ref}` : ''}`,
-    subjectMany: (n: number, ref: string | null) => `Reorder ${n} medications${ref ? ` – patient ${ref}` : ''}`,
+    subject: (name, ref) => `Reorder ${name}${ref ? ` – patient ${ref}` : ''}`,
+    subjectMany: (n, ref) => `Reorder ${n} medications${ref ? ` – patient ${ref}` : ''}`,
     greeting: 'Dear team',
     intro: {
       practice: 'I would like to request a prescription or reorder for the following medication:',
@@ -95,28 +128,103 @@ const T = {
     pharmacode: 'Pharmacode',
     pack: 'Pack',
     quantity: 'Quantity',
-    packs: (n: number) => (n === 1 ? '1 pack' : `${n} packs`),
-    units: (n: number | null) => (n === null ? 'unknown' : `${formatUnits(n)} units`),
+    packs: (n) => (n === 1 ? '1 pack' : `${n} packs`),
+    units: (n) => (n === null ? 'unknown' : `${formatUnits(n)} units`),
     stock: 'Current stock',
-    until: (d: IsoDate) => `lasts until about ${formatDate(d)}`,
+    until: (d) => `lasts until about ${formatDate(d)}`,
     neededBy: 'Needed by',
     prescription: 'Prescription',
     rx: {
       none: 'none on file, please issue a new one',
-      expired: (d: IsoDate | null) => `expired${d ? ` on ${formatDate(d)}` : ''}, please issue a new one`,
+      expired: (d) => `expired${d ? ` on ${formatDate(d)}` : ''}, please issue a new one`,
       exhausted: 'no refills left, please issue a new one',
-      valid: (d: IsoDate | null, r: number | null) =>
-        `valid${d ? ` until ${formatDate(d)}` : ''}${r !== null ? `, ${r} refill${r === 1 ? '' : 's'} left` : ''}`,
+      valid: (d, r) => `valid${d ? ` until ${formatDate(d)}` : ''}${r !== null ? `, ${r} refill${r === 1 ? '' : 's'} left` : ''}`,
     },
     note: 'Note',
     reference: 'Reference',
-    shortage: (status: string | null) =>
+    shortage: (status) =>
       `Note: a supply shortage is reported for this product${status ? ` (${status})` : ''}. I would therefore be grateful for early handling, and for a call back if delivery is not possible.`,
-    shortageShort: (status: string | null) => `Note: shortage reported${status ? ` (${status})` : ''}, early handling and a call back if not available would be appreciated.`,
+    shortageShort: (status) => `Note: shortage reported${status ? ` (${status})` : ''}, early handling and a call back if not available would be appreciated.`,
     footer: 'This request was created with Easy MedRefill. Please confirm receipt via the link below or with a short reply to this email.',
     closing: 'Kind regards',
   },
-} as const;
+  fr: {
+    subject: (name, ref) => `Commande ${name}${ref ? ` – patient ${ref}` : ''}`,
+    subjectMany: (n, ref) => `Commande de ${n} médicaments${ref ? ` – patient ${ref}` : ''}`,
+    greeting: 'Bonjour',
+    intro: {
+      practice: 'Je vous prie de bien vouloir établir une ordonnance ou renouveler le médicament suivant :',
+      pharmacy: 'Je vous prie de bien vouloir préparer le médicament suivant :',
+    },
+    introMany: {
+      practice: 'Je vous prie de bien vouloir établir les ordonnances ou renouveler les médicaments suivants (retrait groupé) :',
+      pharmacy: 'Je vous prie de bien vouloir préparer les médicaments suivants (retrait groupé) :',
+    },
+    patient: 'Patient',
+    medication: 'Médicament',
+    gtin: 'GTIN',
+    pharmacode: 'Pharmacode',
+    pack: 'Boîte',
+    quantity: 'Quantité',
+    packs: (n) => (n === 1 ? '1 boîte' : `${n} boîtes`),
+    units: (n) => (n === null ? 'inconnu' : `${formatUnits(n)} unités`),
+    stock: 'Stock actuel',
+    until: (d) => `suffit jusqu’au ${formatDate(d)} environ`,
+    neededBy: 'Nécessaire d’ici le',
+    prescription: 'Ordonnance',
+    rx: {
+      none: 'aucune ordonnance, merci d’en établir une nouvelle',
+      expired: (d) => `expirée${d ? ` le ${formatDate(d)}` : ''}, merci d’en établir une nouvelle`,
+      exhausted: 'plus de renouvellement possible, merci d’en établir une nouvelle',
+      valid: (d, r) => `valable${d ? ` jusqu’au ${formatDate(d)}` : ''}${r !== null ? `, ${r} renouvellement${r === 1 ? '' : 's'} restant${r === 1 ? '' : 's'}` : ''}`,
+    },
+    note: 'Remarque',
+    reference: 'Référence',
+    shortage: (status) =>
+      `Remarque : une pénurie est signalée pour ce produit${status ? ` (${status})` : ''}. Je vous serais reconnaissant d’un traitement rapide et d’un rappel si la livraison n’est pas possible.`,
+    shortageShort: (status) => `Remarque : pénurie signalée${status ? ` (${status})` : ''}, merci d’un traitement rapide et d’un rappel en cas d’indisponibilité.`,
+    footer: 'Cette demande a été créée avec Easy MedRefill. Merci de confirmer sa réception via le lien ci-dessous ou par une courte réponse à cet e-mail.',
+    closing: 'Meilleures salutations',
+  },
+  it: {
+    subject: (name, ref) => `Ordine ${name}${ref ? ` – paziente ${ref}` : ''}`,
+    subjectMany: (n, ref) => `Ordine di ${n} medicamenti${ref ? ` – paziente ${ref}` : ''}`,
+    greeting: 'Buongiorno',
+    intro: {
+      practice: 'Chiedo cortesemente una ricetta o il rinnovo del seguente medicamento:',
+      pharmacy: 'Chiedo cortesemente di preparare il seguente medicamento:',
+    },
+    introMany: {
+      practice: 'Chiedo cortesemente le ricette o il rinnovo dei seguenti medicamenti (ritiro insieme):',
+      pharmacy: 'Chiedo cortesemente di preparare i seguenti medicamenti (ritiro insieme):',
+    },
+    patient: 'Paziente',
+    medication: 'Medicamento',
+    gtin: 'GTIN',
+    pharmacode: 'Pharmacode',
+    pack: 'Confezione',
+    quantity: 'Quantità',
+    packs: (n) => (n === 1 ? '1 confezione' : `${n} confezioni`),
+    units: (n) => (n === null ? 'sconosciuto' : `${formatUnits(n)} unità`),
+    stock: 'Scorta attuale',
+    until: (d) => `sufficiente fino al ${formatDate(d)} circa`,
+    neededBy: 'Necessario entro il',
+    prescription: 'Ricetta',
+    rx: {
+      none: 'nessuna ricetta, si prega di emetterne una nuova',
+      expired: (d) => `scaduta${d ? ` il ${formatDate(d)}` : ''}, si prega di emetterne una nuova`,
+      exhausted: 'nessuna ripetizione possibile, si prega di emetterne una nuova',
+      valid: (d, r) => `valida${d ? ` fino al ${formatDate(d)}` : ''}${r !== null ? `, ${r} ripetizion${r === 1 ? 'e' : 'i'} rimanent${r === 1 ? 'e' : 'i'}` : ''}`,
+    },
+    note: 'Osservazione',
+    reference: 'Riferimento',
+    shortage: (status) =>
+      `Nota: per questo prodotto è segnalata una carenza${status ? ` (${status})` : ''}. Chiedo quindi un’evasione sollecita e un contatto se la consegna non è possibile.`,
+    shortageShort: (status) => `Nota: carenza segnalata${status ? ` (${status})` : ''}, si prega di evadere con sollecitudine e di contattarmi se non disponibile.`,
+    footer: 'Questa richiesta è stata creata con Easy MedRefill. Si prega di confermare la ricezione tramite il link qui sotto o con una breve risposta a questa e-mail.',
+    closing: 'Cordiali saluti',
+  },
+};
 
 /** "Tacrolimus 1 mg capsule", without repeating a strength already in the name. */
 export function medicationLine(med: ReorderItemInput['medication']): string {
@@ -125,7 +233,7 @@ export function medicationLine(med: ReorderItemInput['medication']): string {
   return [med.name, ...extras].join(' ');
 }
 
-function prescriptionLine(t: (typeof T)[ReorderLanguage], p: ReorderItemInput['prescription']): string {
+function prescriptionLine(t: Texts, p: ReorderItemInput['prescription']): string {
   switch (p.status) {
     case 'none':
       return t.rx.none;
@@ -138,7 +246,7 @@ function prescriptionLine(t: (typeof T)[ReorderLanguage], p: ReorderItemInput['p
   }
 }
 
-function itemLines(t: (typeof T)[ReorderLanguage], item: ReorderItemInput): string[] {
+function itemLines(t: Texts, item: ReorderItemInput): string[] {
   const med = item.medication;
   const stock = `${t.units(item.unitsRemaining)}${item.runoutDate ? ` (${t.until(item.runoutDate)})` : ''}`;
   const lines: string[] = [];
@@ -152,7 +260,7 @@ function itemLines(t: (typeof T)[ReorderLanguage], item: ReorderItemInput): stri
 }
 
 export function renderReorderMessage(input: ReorderMessageInput): ReorderMessage {
-  const t = T[input.language];
+  const t = T[input.language] ?? T.en;
   const items = input.items;
   if (items.length === 0) throw new Error('A reorder message needs at least one medication.');
   const many = items.length > 1;

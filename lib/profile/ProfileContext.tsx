@@ -1,11 +1,17 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { LaunchScreen } from '@/components/LaunchScreen';
-import { ensureDefaultProfile, type ProfileRow, useDb } from '@/lib/db';
+import { getActiveProfile, listProfiles, type ProfileRow, setActiveProfile, useDb } from '@/lib/db';
 
 interface ProfileContextValue {
+  /** The list the app is showing right now. */
   profile: ProfileRow;
+  /** Every list on this phone, default first. */
+  profiles: ProfileRow[];
+  /** Re-reads the active profile and the list after edits. */
   reload: () => Promise<void>;
+  /** Makes another list the active one; every screen re-queries. */
+  switchProfile: (id: string) => Promise<void>;
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
@@ -13,21 +19,31 @@ const ProfileContext = createContext<ProfileContextValue | null>(null);
 /** The launch screen stays at least this long so it does not flash. */
 const MIN_LAUNCH_MS = 1500;
 
-/** Loads (or creates) the default local profile behind the launch screen. */
+/** Loads the active local profile (creating the default on first launch) behind the launch screen. */
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const db = useDb();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [minElapsed, setMinElapsed] = useState(false);
 
-  const reload = useCallback(async () => {
-    setProfile(await ensureDefaultProfile(db));
+  const load = useCallback(async () => {
+    const active = await getActiveProfile(db);
+    const all = await listProfiles(db);
+    setProfiles(all);
+    setProfile(active);
   }, [db]);
+
+  const switchProfile = useCallback(
+    async (id: string) => {
+      await setActiveProfile(db, id);
+      await load();
+    },
+    [db, load],
+  );
 
   useEffect(() => {
     let active = true;
-    ensureDefaultProfile(db).then((p) => {
-      if (active) setProfile(p);
-    });
+    load().catch(() => undefined);
     const timer = setTimeout(() => {
       if (active) setMinElapsed(true);
     }, MIN_LAUNCH_MS);
@@ -35,9 +51,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       active = false;
       clearTimeout(timer);
     };
-  }, [db]);
+  }, [load]);
 
-  const value = useMemo(() => (profile ? { profile, reload } : null), [profile, reload]);
+  const value = useMemo(() => (profile ? { profile, profiles, reload: load, switchProfile } : null), [profile, profiles, load, switchProfile]);
 
   if (!value || !minElapsed) {
     return <LaunchScreen />;

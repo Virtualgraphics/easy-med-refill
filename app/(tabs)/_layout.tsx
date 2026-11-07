@@ -5,10 +5,12 @@ import React from 'react';
 
 import { brandHeaderOptions } from '@/components/BrandHeader';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { useI18n } from '@/lib/i18n';
 
 const ICON_SIZE = 24;
 
 export default function TabLayout() {
+  const { t } = useI18n();
   return (
     <Tabs
       screenOptions={{
@@ -21,28 +23,28 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: t('common.tabDashboard'),
           tabBarIcon: ({ color }) => <Feather name="grid" size={ICON_SIZE} color={color} />,
         }}
       />
       <Tabs.Screen
         name="medications"
         options={{
-          title: 'Medications',
+          title: t('common.tabMedications'),
           tabBarIcon: ({ color }) => <MaterialCommunityIcons name="pill" size={ICON_SIZE + 2} color={color} />,
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
-          title: 'Orders',
+          title: t('common.tabOrders'),
           tabBarIcon: ({ color }) => <Feather name="truck" size={ICON_SIZE} color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: t('common.tabSettings'),
           tabBarIcon: ({ color }) => <Feather name="settings" size={ICON_SIZE} color={color} />,
         }}
       />

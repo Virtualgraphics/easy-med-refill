@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 
 import { todayIso } from '../db/clock';
 import type { IsoDate } from '../db/types';
+import { t } from '../i18n/translate';
 import type { SupplyForecast } from '../supply/forecast';
 import { planReminders, REMINDER_TITLE, reminderBody } from './plan';
 
@@ -27,9 +28,9 @@ export function configureNotifications(): void {
   });
   if (Platform.OS === 'android') {
     Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-      name: 'Supply reminders',
+      name: t('dashboard.channelName'),
       importance: Notifications.AndroidImportance.DEFAULT,
-      description: 'Reminders when a reorder or prescription renewal is due.',
+      description: t('dashboard.channelDescription'),
     }).catch(() => undefined);
   }
 }
@@ -83,10 +84,7 @@ export async function notifySupplyAlert(count: number): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     content: {
       title: REMINDER_TITLE,
-      body:
-        count === 1
-          ? 'A supply shortage affects one of your medications. Open the app for details.'
-          : `A supply shortage affects ${count} of your medications. Open the app for details.`,
+      body: t('dashboard.shortageAlert', { count }),
     },
     trigger: null,
   });

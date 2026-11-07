@@ -2,6 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 
 import { Body, Button, Card, Muted, Screen, Title } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
 
 interface AiConsentScreenProps {
   onAllow: () => void;
@@ -13,21 +14,19 @@ interface AiConsentScreenProps {
  * setup and is read by an external AI service, so the user decides.
  */
 export function AiConsentScreen({ onAllow, onDecline }: AiConsentScreenProps) {
+  const { t } = useI18n();
   return (
     <Screen scroll>
       <View className="gap-4 pt-4">
-        <Title>Read your list with AI?</Title>
+        <Title>{t('scan.consentTitle')}</Title>
         <Card className="gap-3">
-          <Body>
-            To turn a photo of your medication list into entries, we send the photo to an external AI service. It's used only to read your list,
-            and you'll check every entry before anything is saved.
-          </Body>
-          <Muted>The photo is processed by Meta's AI service outside Switzerland and is not stored, neither by us nor as part of your data.</Muted>
-          <Body>Prefer to keep everything local? Scan your eMediplan QR code or the packs instead, or enter medications by hand.</Body>
+          <Body>{t('scan.consentBody')}</Body>
+          <Muted>{t('scan.consentMeta')}</Muted>
+          <Body>{t('scan.consentAlternative')}</Body>
         </Card>
-        <Button title="Allow and continue" onPress={onAllow} />
-        <Button title="Use QR or manual entry" variant="secondary" onPress={onDecline} />
-        <Muted className="text-center">You can change this anytime in Settings.</Muted>
+        <Button title={t('scan.allowContinue')} onPress={onAllow} />
+        <Button title={t('scan.useQrOrManual')} variant="secondary" onPress={onDecline} />
+        <Muted className="text-center">{t('scan.changeAnytime')}</Muted>
       </View>
     </Screen>
   );

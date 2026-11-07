@@ -11,6 +11,7 @@ import {
   createPrescription,
   createProvider,
   ensureDefaultProfile,
+  getProfile,
   listMedications,
   setDoseSchedule,
   updateProfile,
@@ -153,8 +154,8 @@ export interface SeedResult {
   seeded: boolean;
 }
 
-export async function seedDemoData(db: DbClient): Promise<SeedResult> {
-  const profile = await ensureDefaultProfile(db);
+export async function seedDemoData(db: DbClient, profileId?: string): Promise<SeedResult> {
+  const profile = (profileId ? await getProfile(db, profileId) : null) ?? (await ensureDefaultProfile(db));
   const existing = await listMedications(db, profile.id, { includeArchived: true });
   if (existing.length > 0) {
     return { profileId: profile.id, seeded: false };

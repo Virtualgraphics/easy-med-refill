@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, Card, Muted, Screen, Segmented, TextField } from '@/components/ui';
 import { addDays, createPrescription, getMedication, isIsoDate, listProviders, parseNumber, type PrescriptionType, todayIso, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
+import { useI18n } from '@/lib/i18n';
 import { useProfile } from '@/lib/profile/ProfileContext';
 
 export default function AddPrescriptionScreen() {
@@ -11,6 +12,7 @@ export default function AddPrescriptionScreen() {
   const router = useRouter();
   const db = useDb();
   const { profile } = useProfile();
+  const { t } = useI18n();
   const providers = useDbQuery((d) => listProviders(d, profile.id), [profile.id]);
   const medication = useDbQuery((d) => getMedication(d, id), [id]);
 
@@ -32,9 +34,9 @@ export default function AddPrescriptionScreen() {
   const submit = async () => {
     const r = refills.trim() === '' ? null : parseNumber(refills);
     const next: typeof errors = {};
-    if (!isIsoDate(issued)) next.issued = 'Use YYYY-MM-DD';
-    if (validUntil.trim() !== '' && !isIsoDate(validUntil.trim())) next.validUntil = 'Use YYYY-MM-DD';
-    if (refills.trim() !== '' && (r === null || r < 0 || !Number.isInteger(r))) next.refills = 'Whole number, or leave empty';
+    if (!isIsoDate(issued)) next.issued = t('common.dateInvalid');
+    if (validUntil.trim() !== '' && !isIsoDate(validUntil.trim())) next.validUntil = t('common.dateInvalid');
+    if (refills.trim() !== '' && (r === null || r < 0 || !Number.isInteger(r))) next.refills = t('medication.refillsError');
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
@@ -59,34 +61,41 @@ export default function AddPrescriptionScreen() {
     <Screen scroll>
       <Card className="gap-4">
         <Segmented
-          label="Type"
+          label={t('medication.type')}
           options={[
-            { value: 'standing', label: 'Standing (Dauerrezept)' },
-            { value: 'single', label: 'Single' },
+            { value: 'standing', label: t('medication.standingType') },
+            { value: 'single', label: t('medication.singleType') },
           ]}
           value={type}
           onChange={setType}
         />
-        <TextField label="Issued on" value={issued} onChangeText={setIssued} placeholder="YYYY-MM-DD" error={errors.issued} />
+        <TextField label={t('medication.issuedOn')} value={issued} onChangeText={setIssued} placeholder={t('common.dateFormatHint')} error={errors.issued} />
         <TextField
-          label="Valid until"
+          label={t('medication.validUntil')}
           value={validUntil}
           onChangeText={setValidUntil}
-          placeholder="YYYY-MM-DD, empty if none"
-          helper="Swiss standing prescriptions are usually valid for a year."
+          placeholder={t('medication.validUntilPlaceholder')}
+          helper={t('medication.validUntilHelper')}
           error={errors.validUntil}
         />
-        <TextField label="Refills allowed" value={refills} onChangeText={setRefills} keyboardType="number-pad" placeholder="empty = unlimited" error={errors.refills} />
+        <TextField
+          label={t('medication.refillsAllowed')}
+          value={refills}
+          onChangeText={setRefills}
+          keyboardType="number-pad"
+          placeholder={t('medication.refillsPlaceholder')}
+          error={errors.refills}
+        />
         <Segmented
-          label="Issued by"
-          options={[{ value: 'none', label: 'Unknown' }, ...(providers.data ?? []).map((p) => ({ value: p.id, label: p.name }))]}
+          label={t('medication.issuedBy')}
+          options={[{ value: 'none', label: t('medication.unknownIssuer') }, ...(providers.data ?? []).map((p) => ({ value: p.id, label: p.name }))]}
           value={providerId}
           onChange={setProviderId}
         />
-        {(providers.data ?? []).length === 0 ? <Muted>Add practices and pharmacies under Settings.</Muted> : null}
-        <TextField label="Reference" value={reference} onChangeText={setReference} placeholder="optional, e.g. prescription number" />
+        {(providers.data ?? []).length === 0 ? <Muted>{t('medication.addSuppliersHint')}</Muted> : null}
+        <TextField label={t('medication.reference')} value={reference} onChangeText={setReference} placeholder={t('medication.referencePlaceholder')} />
       </Card>
-      <Button title="Add prescription" onPress={submit} loading={saving} />
+      <Button title={t('medication.addPrescription')} onPress={submit} loading={saving} />
     </Screen>
   );
 }

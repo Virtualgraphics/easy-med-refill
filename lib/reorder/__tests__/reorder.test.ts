@@ -154,10 +154,25 @@ describe('renderReorderMessage', () => {
     expect(en.body).toContain('to be collected together');
   });
 
+  it('renders French and Italian with the same structure', () => {
+    const fr = renderReorderMessage({ ...base, language: 'fr' });
+    expect(fr.subject).toBe('Commande Tacrolimus – patient DP-1968');
+    expect(fr.body).toContain('Médicament: Tacrolimus 1 mg capsule');
+    expect(fr.body).toContain('Quantité: 2 boîtes');
+    expect(fr.body).toContain('Ordonnance: valable jusqu’au 31.01.2027');
+    expect(fr.body).toContain('Référence: 3F9A1C2E');
+
+    const it2 = renderReorderMessage({ ...base, language: 'it', providerKind: 'pharmacy', items: [tacrolimus, { ...tacrolimus, quantityPacks: 1 }] });
+    expect(it2.subject).toBe('Ordine di 2 medicamenti – paziente DP-1968');
+    expect(it2.body).toContain('(ritiro insieme)');
+    expect(it2.body).toContain('   Quantità: 1 confezione');
+    expect(it2.body).toContain('Cordiali saluti');
+  });
+
   it('never talks about doses or what to take', () => {
-    for (const language of ['de', 'en'] as const) {
+    for (const language of ['de', 'en', 'fr', 'it'] as const) {
       const { body } = renderReorderMessage({ ...base, language });
-      expect(body.toLowerCase()).not.toMatch(/dosis|dose|einnehmen|take /);
+      expect(body.toLowerCase()).not.toMatch(/dosis|dose|einnehmen|take |prendre|assumere/);
     }
   });
 });

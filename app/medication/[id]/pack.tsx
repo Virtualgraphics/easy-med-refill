@@ -5,12 +5,14 @@ import { View } from 'react-native';
 import { Button, Card, Muted, Screen, TextField } from '@/components/ui';
 import { addPack, getMedication, isIsoDate, parseNumber, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
+import { useI18n } from '@/lib/i18n';
 
 export default function AddPackScreen() {
   const params = useLocalSearchParams<{ id: string; gtin?: string; batch?: string; expiry?: string }>();
   const { id } = params;
   const router = useRouter();
   const db = useDb();
+  const { t } = useI18n();
   const medication = useDbQuery((d) => getMedication(d, id), [id]);
 
   const [size, setSize] = useState('');
@@ -36,9 +38,9 @@ export default function AddPackScreen() {
     const s = parseNumber(size);
     const r = parseNumber(remaining);
     const next: typeof errors = {};
-    if (s === null || s <= 0) next.size = 'Must be greater than 0';
-    if (r === null || r < 0 || (s !== null && r > s)) next.remaining = 'Between 0 and the pack size';
-    if (expiry.trim() !== '' && !isIsoDate(expiry.trim())) next.expiry = 'Use YYYY-MM-DD';
+    if (s === null || s <= 0) next.size = t('medication.greaterThanZero');
+    if (r === null || r < 0 || (s !== null && r > s)) next.remaining = t('medication.remainingError');
+    if (expiry.trim() !== '' && !isIsoDate(expiry.trim())) next.expiry = t('common.dateInvalid');
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
@@ -62,11 +64,11 @@ export default function AddPackScreen() {
     <Screen scroll>
       {scanned ? (
         <Card>
-          <Muted>Batch and expiry were read from the pack code. Enter how many units the pack holds.</Muted>
+          <Muted>{t('medication.scannedHint')}</Muted>
         </Card>
       ) : (
         <Button
-          title="Scan the pack code"
+          title={t('medication.scanPackCode')}
           variant="secondary"
           onPress={() => router.replace({ pathname: '/scan', params: { mode: 'pack', medicationId: id } })}
         />
@@ -74,11 +76,19 @@ export default function AddPackScreen() {
       <Card className="gap-4">
         <View className="flex-row gap-3">
           <View className="flex-1">
-            <TextField label="Units in pack" value={size} onChangeText={onSizeChange} keyboardType="decimal-pad" placeholder="e.g. 100" error={errors.size} autoFocus />
+            <TextField
+              label={t('medication.unitsInPack')}
+              value={size}
+              onChangeText={onSizeChange}
+              keyboardType="decimal-pad"
+              placeholder={t('medication.unitsInPackPlaceholder')}
+              error={errors.size}
+              autoFocus
+            />
           </View>
           <View className="flex-1">
             <TextField
-              label="Units left"
+              label={t('medication.unitsLeft')}
               value={remaining}
               onChangeText={(v) => {
                 setRemaining(v);
@@ -89,11 +99,11 @@ export default function AddPackScreen() {
             />
           </View>
         </View>
-        <TextField label="Expiry date" value={expiry} onChangeText={setExpiry} placeholder="YYYY-MM-DD" error={errors.expiry} />
-        <TextField label="Batch" value={batch} onChangeText={setBatch} placeholder="optional" autoCapitalize="characters" />
-        <TextField label="GTIN" value={gtin} onChangeText={setGtin} placeholder="optional" keyboardType="number-pad" />
+        <TextField label={t('medication.expiryDate')} value={expiry} onChangeText={setExpiry} placeholder={t('common.dateFormatHint')} error={errors.expiry} />
+        <TextField label={t('medication.batch')} value={batch} onChangeText={setBatch} placeholder={t('common.optional')} autoCapitalize="characters" />
+        <TextField label={t('medication.gtin')} value={gtin} onChangeText={setGtin} placeholder={t('common.optional')} keyboardType="number-pad" />
       </Card>
-      <Button title="Add pack" onPress={submit} loading={saving} />
+      <Button title={t('medication.addPack')} onPress={submit} loading={saving} />
     </Screen>
   );
 }

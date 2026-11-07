@@ -8,6 +8,7 @@ import { MedicationCard } from '@/components/MedicationCard';
 import { Body, Button, Muted, Screen, Title } from '@/components/ui';
 import { type DbClient, getSupplyOverview, listProviders, listShortageMatchedMedicationIds, seedDemoData, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
+import { useI18n } from '@/lib/i18n';
 import { useProfile } from '@/lib/profile/ProfileContext';
 import { forecastAll } from '@/lib/supply';
 
@@ -25,6 +26,7 @@ export default function MedicationsScreen() {
   const router = useRouter();
   const db = useDb();
   const { profile, reload: reloadProfile } = useProfile();
+  const { t } = useI18n();
   const { data, loading, error, reload } = useDbQuery((d) => loadList(d, profile.id), [profile.id]);
   const [seeding, setSeeding] = useState(false);
 
@@ -51,10 +53,10 @@ export default function MedicationsScreen() {
         options={{
           headerRight: () => (
             <View className="flex-row items-center">
-              <Pressable accessibilityRole="button" accessibilityLabel="Scan a code" onPress={() => router.push('/scan')} hitSlop={8}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('dashboard.scanCode')} onPress={() => router.push('/scan')} hitSlop={8}>
                 <MaterialCommunityIcons name="qrcode-scan" size={22} color="#fff" style={{ marginRight: 20 }} />
               </Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel="Add medication" onPress={() => router.push('/medication/new')} hitSlop={8}>
+              <Pressable accessibilityRole="button" accessibilityLabel={t('dashboard.addMedication')} onPress={() => router.push('/medication/new')} hitSlop={8}>
                 <Feather name="plus" size={24} color="#fff" style={{ marginRight: 16 }} />
               </Pressable>
             </View>
@@ -84,13 +86,11 @@ export default function MedicationsScreen() {
           )}
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center gap-4 px-6">
-              <Title className="text-center">No medications yet</Title>
-              <Muted className="text-center">
-                Add your first medication, or load the anonymised demo list to explore the app.
-              </Muted>
-              <Button title="Scan eMediplan or pack" onPress={() => router.push('/scan')} />
-              <Button title="Add medication manually" variant="secondary" onPress={() => router.push('/medication/new')} />
-              <Button title="Load demo data" variant="ghost" onPress={loadDemo} loading={seeding} />
+              <Title className="text-center">{t('dashboard.emptyTitle')}</Title>
+              <Muted className="text-center">{t('dashboard.emptyBody')}</Muted>
+              <Button title={t('dashboard.emptyScan')} onPress={() => router.push('/scan')} />
+              <Button title={t('dashboard.emptyManual')} variant="secondary" onPress={() => router.push('/medication/new')} />
+              <Button title={t('dashboard.loadDemo')} variant="ghost" onPress={loadDemo} loading={seeding} />
             </View>
           }
         />

@@ -14,6 +14,7 @@
 import { ungzip } from 'pako';
 
 import type { DosePeriod, IsoDate } from '../db/types';
+import { t } from '../i18n/translate';
 
 export type EmediplanIdType = 'none' | 'gtin' | 'pharmacode' | 'product';
 
@@ -71,11 +72,11 @@ export function decodeChTransmission(raw: string): { version: string; json: stri
   if (v23) {
     const [, sub, index, , data] = v23;
     if (index) {
-      throw new EmediplanParseError('Chunked CHMED23 codes are not supported; scan a single-code plan.');
+      throw new EmediplanParseError(t('scan.chunkedNotSupported'));
     }
     return { version: `23${sub.toUpperCase()}`, json: inflate(data) };
   }
-  throw new EmediplanParseError('Not an eMediplan code.');
+  throw new EmediplanParseError(t('scan.notEmediplan'));
 }
 
 function inflate(base64: string): string {
@@ -184,7 +185,7 @@ export function toImportCandidates(doc: EmediplanDocument): ImportCandidate[] {
     const dose = posology ? doseFromPosology(posology) : null;
     const notes = [m.takingReason, m.instructions].filter(Boolean).join(' · ') || null;
     const suggestedName =
-      m.idType === 'none' && m.id ? m.id : m.takingReason ? m.takingReason : m.id ? `${labelForId(m.idType)} ${m.id}` : `Medication ${index + 1}`;
+      m.idType === 'none' && m.id ? m.id : m.takingReason ? m.takingReason : m.id ? `${labelForId(m.idType)} ${m.id}` : t('scan.medicationN', { n: index + 1 });
     return {
       key: `${m.idType}:${m.id || index}`,
       suggestedName,
@@ -192,13 +193,13 @@ export function toImportCandidates(doc: EmediplanDocument): ImportCandidate[] {
       pharmacode: m.idType === 'pharmacode' ? m.id : null,
       notes,
       dose,
-      doseSummary: dose ? summariseDose(dose, m.unit) : 'No dose in the plan',
+      doseSummary: dose ? summariseDose(dose, m.unit) : t('scan.noDoseInPlan'),
     };
   });
 }
 
 function labelForId(type: EmediplanIdType): string {
-  return type === 'gtin' ? 'GTIN' : type === 'pharmacode' ? 'Pharmacode' : 'Product';
+  return type === 'gtin' ? 'GTIN' : type === 'pharmacode' ? 'Pharmacode' : t('scan.product');
 }
 
 /**
@@ -240,9 +241,10 @@ function doseFromPosology(p: EmediplanPosology): ImportCandidate['dose'] {
 }
 
 export function summariseDose(dose: NonNullable<ImportCandidate['dose']>, unit: string | null): string {
-  const u = unit ? ` ${unit}` : '';
-  const prn = dose.is_prn ? ' (as needed)' : '';
-  return `${dose.units_per_intake}${u} × ${dose.intakes_per_period} per ${dose.period}${prn}`;
+  const units = `${dose.units_per_intake}${unit ? ` ${unit}` : ''}`;
+  const period = dose.period === 'week' ? t('scan.periodWeek') : t('scan.periodDay');
+  const prn = dose.is_prn ? ` ${t('scan.asNeededSuffix')}` : '';
+  return `${t('scan.doseSummary', { units, times: dose.intakes_per_period, period })}${prn}`;
 }
 
 const round = (n: number) => Math.round(n * 1000) / 1000;

@@ -8,6 +8,7 @@ import { Badge, Body, Button, Card, Collapsible, Heading, Muted, Screen } from '
 import {
   dailyUnits,
   type DbClient,
+  type DosePeriod,
   formatDate,
   formatUnits,
   getActiveDoseSchedule,
@@ -28,6 +29,7 @@ import {
 } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
 import { useOpenSections } from '@/lib/hooks/useOpenSections';
+import { useI18n } from '@/lib/i18n';
 import { useProfile } from '@/lib/profile/ProfileContext';
 import { pillRunwayDays } from '@/lib/supply';
 import { describeAction, describePillRunway, describePrescriptionRunway, forecastAll } from '@/lib/supply';
@@ -52,6 +54,7 @@ export default function MedicationDetailScreen() {
   const router = useRouter();
   const db = useDb();
   const { profile } = useProfile();
+  const { t } = useI18n();
   const { data, loading, reload } = useDbQuery((d) => loadDetail(d, id, profile.id), [id, profile.id]);
   const sections = useOpenSections();
 
@@ -59,7 +62,7 @@ export default function MedicationDetailScreen() {
     return (
       <Screen>
         <View className="flex-1 items-center justify-center">
-          {loading ? <ActivityIndicator color="#0B5CAB" /> : <Muted>Medication not found.</Muted>}
+          {loading ? <ActivityIndicator color="#0B5CAB" /> : <Muted>{t('medication.notFound')}</Muted>}
         </View>
       </Screen>
     );
@@ -94,24 +97,29 @@ export default function MedicationDetailScreen() {
   const go = (screen: 'edit' | 'pack' | 'dose' | 'prescription') =>
     router.push({ pathname: `/medication/[id]/${screen}`, params: { id } });
 
-  const doseLine = schedule
-    ? `${formatUnits(schedule.units_per_intake)} × ${formatUnits(schedule.intakes_per_period)} per ${schedule.period}${schedule.is_prn ? ' (as needed)' : ''}`
-    : 'Not entered';
+  const periodWord = (period: DosePeriod) => (period === 'week' ? t('medication.periodWeek') : t('medication.periodDay'));
+  const doseText = (entry: { units_per_intake: number; intakes_per_period: number; period: DosePeriod; is_prn: number }) =>
+    `${t('medication.doseLine', { units: formatUnits(entry.units_per_intake), times: formatUnits(entry.intakes_per_period), period: periodWord(entry.period) })}${
+      entry.is_prn ? ` ${t('medication.asNeeded')}` : ''
+    }`;
+
+  const doseLine = schedule ? doseText(schedule) : t('medication.doseNotEntered');
   const supplyLine =
     packs.length === 0
-      ? 'No packs recorded'
-      : `${formatUnits(unitsOnHand)} units · ${runway === null ? 'no dose' : `${runway} ${runway === 1 ? 'day' : 'days'}`}`;
+      ? t('medication.noPacks')
+      : t('medication.unitsAndRunway', { units: formatUnits(unitsOnHand), runway: runway === null ? t('medication.noDose') : t('common.days', { count: runway }) });
+  const rxRefills = currentRx ? refillsRemaining(currentRx) : null;
   const rxSummary = !currentRx
-    ? 'None recorded'
-    : `${currentRx.type === 'standing' ? 'Standing' : 'Single'} · ${currentRx.valid_until ? `valid until ${formatDate(currentRx.valid_until)}` : 'no expiry'} · ${
-        refillsRemaining(currentRx) === null ? 'unlimited refills' : `${refillsRemaining(currentRx)} refills left`
-      }`;
-  const forecastSummary = `${forecast.lead_time_days} days lead + ${forecast.safety_buffer_days} days buffer${
-    forecast.pill_runout_date ? ` · runs out ${formatDate(forecast.pill_runout_date)}` : ''
+    ? t('medication.rxNone')
+    : `${currentRx.type === 'standing' ? t('medication.rxStanding') : t('medication.rxSingle')} · ${
+        currentRx.valid_until ? t('medication.rxValidUntil', { date: formatDate(currentRx.valid_until) }) : t('medication.rxNoExpiry')
+      } · ${rxRefills === null ? t('medication.rxUnlimited') : t('medication.rxRefillsLeft', { count: rxRefills })}`;
+  const forecastSummary = `${t('medication.forecastSummary', { lead: forecast.lead_time_days, buffer: forecast.safety_buffer_days })}${
+    forecast.pill_runout_date ? ` · ${t('medication.runsOut', { date: formatDate(forecast.pill_runout_date) })}` : ''
   }`;
   const historySummary = schedule
-    ? `Since ${formatDate(schedule.valid_from)}${history.length > 1 ? ` · ${history.length - 1} earlier ${history.length === 2 ? 'entry' : 'entries'}` : ''}`
-    : 'No dose entered yet';
+    ? `${t('medication.historySince', { date: formatDate(schedule.valid_from) })}${history.length > 1 ? ` · ${t('medication.historyEarlier', { count: history.length - 1 })}` : ''}`
+    : t('medication.noDoseYet');
 
   return (
     <Screen scroll>
@@ -119,7 +127,7 @@ export default function MedicationDetailScreen() {
         options={{
           title: medication.name,
           headerRight: () => (
-            <Pressable accessibilityRole="button" accessibilityLabel="Edit" onPress={() => go('edit')} hitSlop={8}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('common.edit')} onPress={() => go('edit')} hitSlop={8}>
               <Feather name="edit-2" size={20} color="#fff" style={{ marginRight: 16 }} />
             </Pressable>
           ),
@@ -130,22 +138,22 @@ export default function MedicationDetailScreen() {
       <Card className="gap-4">
         <View className="gap-1">
           <View className="flex-row flex-wrap gap-2">
-            {medication.is_critical ? <Badge text="Critical" tone="critical" /> : null}
-            {forecast.shortage ? <Badge text="Shortage reported" tone="warn" /> : null}
-            {openRequest ? <Badge text="Order open" tone="brand" /> : null}
+            {medication.is_critical ? <Badge text={t('common.critical')} tone="critical" /> : null}
+            {forecast.shortage ? <Badge text={t('medication.shortageReported')} tone="warn" /> : null}
+            {openRequest ? <Badge text={t('medication.orderOpen')} tone="brand" /> : null}
           </View>
           <Muted>
-            {[medication.active_ingredient, medication.strength, medication.form].filter(Boolean).join(' · ') || 'No details recorded'}
+            {[medication.active_ingredient, medication.strength, medication.form].filter(Boolean).join(' · ') || t('medication.noDetails')}
             {preferred ? ` · ${preferred.name}` : ''}
           </Muted>
         </View>
 
         <View className="flex-row gap-3">
-          <Fact label="Daily dose" value={doseLine} onPress={() => go('dose')} />
-          <Fact label="On hand" value={supplyLine} />
+          <Fact label={t('medication.dailyDose')} value={doseLine} onPress={() => go('dose')} />
+          <Fact label={t('medication.onHand')} value={supplyLine} />
         </View>
         <View className="gap-1">
-          <Muted className="text-xs font-semibold uppercase tracking-wide">Next step</Muted>
+          <Muted className="text-xs font-semibold uppercase tracking-wide">{t('medication.nextStep')}</Muted>
           <View className="flex-row items-center gap-2">
             <Badge text={describeAction(forecast)} tone={badgeToneFor(forecast)} />
           </View>
@@ -153,23 +161,26 @@ export default function MedicationDetailScreen() {
         </View>
 
         {openRequest ? (
-          <Button title="View open reorder" variant="secondary" onPress={() => router.push({ pathname: '/order/[id]', params: { id: openRequest.batch_id } })} />
+          <Button title={t('medication.viewOpenReorder')} variant="secondary" onPress={() => router.push({ pathname: '/order/[id]', params: { id: openRequest.batch_id } })} />
         ) : (
-          <Button title="Reorder" onPress={() => router.push({ pathname: '/reorder', params: { medicationId: id } })} />
+          <Button title={t('medication.reorder')} onPress={() => router.push({ pathname: '/reorder', params: { medicationId: id } })} />
         )}
       </Card>
 
-      <Collapsible title="Supply" summary={supplyLine} expanded={sections.isOpen('supply')} onToggle={() => sections.toggle('supply')} action={{ label: 'Add pack', onPress: () => go('pack') }}>
-        {packs.length === 0 ? <Muted>Add the packs you have at home; the stepper tracks what is left.</Muted> : null}
+      <Collapsible
+        title={t('medication.supply')}
+        summary={supplyLine}
+        expanded={sections.isOpen('supply')}
+        onToggle={() => sections.toggle('supply')}
+        action={{ label: t('medication.addPack'), onPress: () => go('pack') }}>
+        {packs.length === 0 ? <Muted>{t('medication.addPacksHint')}</Muted> : null}
         {packs.map((pack, index) => (
           <View key={pack.id} className={`flex-row items-center justify-between gap-3 ${index > 0 ? 'border-t border-neutral-100 pt-3 dark:border-neutral-800' : ''}`}>
             <View className="flex-1 gap-0.5">
-              <Body className="font-semibold">
-                {formatUnits(pack.units_remaining)} / {formatUnits(pack.units_per_pack)} units
-              </Body>
+              <Body className="font-semibold">{t('medication.packUnits', { remaining: formatUnits(pack.units_remaining), size: formatUnits(pack.units_per_pack) })}</Body>
               <Muted>
-                {pack.expiry_date ? `Expires ${formatDate(pack.expiry_date)}` : 'No expiry'}
-                {pack.batch ? ` · Batch ${pack.batch}` : ''}
+                {pack.expiry_date ? t('medication.expires', { date: formatDate(pack.expiry_date) }) : t('medication.noExpiry')}
+                {pack.batch ? ` · ${t('medication.batchLabel', { batch: pack.batch })}` : ''}
               </Muted>
             </View>
             <View className="flex-row items-center gap-1">
@@ -180,23 +191,28 @@ export default function MedicationDetailScreen() {
         ))}
       </Collapsible>
 
-      <Collapsible title="Prescription" summary={rxSummary} expanded={sections.isOpen('prescription')} onToggle={() => sections.toggle('prescription')} action={{ label: 'Add', onPress: () => go('prescription') }}>
-        {prescriptions.length === 0 ? <Muted>No prescription recorded. The prescription runway needs one.</Muted> : null}
+      <Collapsible
+        title={t('medication.prescription')}
+        summary={rxSummary}
+        expanded={sections.isOpen('prescription')}
+        onToggle={() => sections.toggle('prescription')}
+        action={{ label: t('common.add'), onPress: () => go('prescription') }}>
+        {prescriptions.length === 0 ? <Muted>{t('medication.noPrescriptionHint')}</Muted> : null}
         {prescriptions.map((rx, index) => {
           const remaining = refillsRemaining(rx);
           const issuer = rx.provider_id ? providerById.get(rx.provider_id)?.name : null;
           return (
             <View key={rx.id} className={`gap-0.5 ${index > 0 ? 'border-t border-neutral-100 pt-3 opacity-60 dark:border-neutral-800' : ''}`}>
               <Body className="font-semibold">
-                {rx.type === 'standing' ? 'Standing prescription' : 'Single prescription'}
-                {index === 0 ? '' : ' (older)'}
+                {rx.type === 'standing' ? t('medication.standingPrescription') : t('medication.singlePrescription')}
+                {index === 0 ? '' : ` ${t('medication.older')}`}
               </Body>
               <Muted>
-                Issued {formatDate(rx.issued_at)}
-                {rx.valid_until ? ` · valid until ${formatDate(rx.valid_until)}` : ' · no expiry'}
+                {t('medication.issued', { date: formatDate(rx.issued_at) })}
+                {rx.valid_until ? ` · ${t('medication.rxValidUntil', { date: formatDate(rx.valid_until) })}` : ` · ${t('medication.rxNoExpiry')}`}
               </Muted>
               <Muted>
-                {remaining === null ? 'Unlimited refills' : `${remaining} refill${remaining === 1 ? '' : 's'} left`}
+                {remaining === null ? t('medication.unlimitedRefills') : t('medication.rxRefillsLeft', { count: remaining })}
                 {issuer ? ` · ${issuer}` : ''}
               </Muted>
             </View>
@@ -204,27 +220,29 @@ export default function MedicationDetailScreen() {
         })}
       </Collapsible>
 
-      <Collapsible title="Forecast" summary={forecastSummary} expanded={sections.isOpen('forecast')} onToggle={() => sections.toggle('forecast')}>
-        <ForecastRow label="Pill runway" value={describePillRunway(forecast)} />
-        <ForecastRow label="Prescription runway" value={describePrescriptionRunway(forecast)} />
-        <ForecastRow label="Margin" value={`${forecast.lead_time_days} days lead time + ${forecast.safety_buffer_days} days safety buffer`} />
-        {forecast.reorder_by ? <ForecastRow label="Reorder by" value={formatDate(forecast.reorder_by)} /> : null}
-        {forecast.renewal_by ? <ForecastRow label="Renew prescription by" value={formatDate(forecast.renewal_by)} /> : null}
-        <Muted>The buffer and preferred supplier can be changed under Edit.</Muted>
+      <Collapsible title={t('medication.forecast')} summary={forecastSummary} expanded={sections.isOpen('forecast')} onToggle={() => sections.toggle('forecast')}>
+        <ForecastRow label={t('medication.pillRunway')} value={describePillRunway(forecast)} />
+        <ForecastRow label={t('medication.prescriptionRunway')} value={describePrescriptionRunway(forecast)} />
+        <ForecastRow label={t('medication.margin')} value={t('medication.marginValue', { lead: forecast.lead_time_days, buffer: forecast.safety_buffer_days })} />
+        {forecast.reorder_by ? <ForecastRow label={t('medication.reorderBy')} value={formatDate(forecast.reorder_by)} /> : null}
+        {forecast.renewal_by ? <ForecastRow label={t('medication.renewBy')} value={formatDate(forecast.renewal_by)} /> : null}
+        <Muted>{t('medication.forecastHint')}</Muted>
       </Collapsible>
 
-      <Collapsible title="Dose history" summary={historySummary} expanded={sections.isOpen('history')} onToggle={() => sections.toggle('history')} action={{ label: schedule ? 'Update' : 'Enter', onPress: () => go('dose') }}>
-        {history.length === 0 ? <Muted>Enter the dose exactly as prescribed. It is used only to forecast your supply.</Muted> : null}
+      <Collapsible
+        title={t('medication.doseHistory')}
+        summary={historySummary}
+        expanded={sections.isOpen('history')}
+        onToggle={() => sections.toggle('history')}
+        action={{ label: schedule ? t('medication.update') : t('medication.enter'), onPress: () => go('dose') }}>
+        {history.length === 0 ? <Muted>{t('medication.historyHint')}</Muted> : null}
         {history.map((entry, index) => (
           <View key={entry.id} className={`gap-0.5 ${index > 0 ? 'border-t border-neutral-100 pt-3 dark:border-neutral-800' : ''}`}>
-            <Body className={index === 0 && entry.id === schedule?.id ? 'font-semibold' : ''}>
-              {formatUnits(entry.units_per_intake)} × {formatUnits(entry.intakes_per_period)} per {entry.period}
-              {entry.is_prn ? ' (as needed)' : ''}
-            </Body>
+            <Body className={index === 0 && entry.id === schedule?.id ? 'font-semibold' : ''}>{doseText(entry)}</Body>
             <Muted>
               {formatDate(entry.valid_from)}
-              {entry.valid_to ? ` to ${formatDate(entry.valid_to)}` : ' onwards'}
-              {entry.source === 'emediplan' ? ' · from eMediplan' : ''}
+              {entry.valid_to ? ` ${t('medication.to', { date: formatDate(entry.valid_to) })}` : ` ${t('medication.onwards')}`}
+              {entry.source === 'emediplan' ? ` · ${t('medication.fromEmediplan')}` : ''}
             </Muted>
           </View>
         ))}

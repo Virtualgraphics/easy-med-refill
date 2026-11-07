@@ -12,6 +12,7 @@ import '../global.css';
 import { BrandStackHeader } from '@/components/BrandHeader';
 import { LaunchScreen } from '@/components/LaunchScreen';
 import { DATABASE_NAME, DATABASE_OPTIONS, initializeDatabase } from '@/lib/db';
+import { I18nProvider, useI18n } from '@/lib/i18n';
 import { configureNotifications } from '@/lib/notifications';
 import { ProfileProvider } from '@/lib/profile/ProfileContext';
 import { ThemeProvider as AppThemeProvider, useTheme } from '@/lib/theme/ThemeContext';
@@ -58,11 +59,13 @@ function RootLayoutNav() {
   return (
     <Suspense fallback={<LaunchScreen />}>
       <SQLiteProvider databaseName={DATABASE_NAME} options={DATABASE_OPTIONS} onInit={initializeDatabase} useSuspense>
-        <ProfileProvider>
-          <AppThemeProvider>
-            <Navigation />
-          </AppThemeProvider>
-        </ProfileProvider>
+        <I18nProvider fallback={<LaunchScreen />}>
+          <ProfileProvider>
+            <AppThemeProvider>
+              <Navigation />
+            </AppThemeProvider>
+          </ProfileProvider>
+        </I18nProvider>
       </SQLiteProvider>
     </Suspense>
   );
@@ -70,6 +73,7 @@ function RootLayoutNav() {
 
 function Navigation() {
   const { scheme } = useTheme();
+  const { t } = useI18n();
 
   return (
     <ThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -79,18 +83,21 @@ function Navigation() {
           headerTintColor: '#fff',
         }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="medication/new" options={{ title: 'New medication' }} />
-        <Stack.Screen name="medication/[id]/index" options={{ title: 'Medication' }} />
-        <Stack.Screen name="medication/[id]/edit" options={{ title: 'Edit medication' }} />
-        <Stack.Screen name="medication/[id]/dose" options={{ title: 'Prescribed dose' }} />
-        <Stack.Screen name="medication/[id]/pack" options={{ title: 'Add pack' }} />
-        <Stack.Screen name="medication/[id]/prescription" options={{ title: 'Add prescription' }} />
-        <Stack.Screen name="reorder" options={{ title: 'New order' }} />
-        <Stack.Screen name="order/[id]" options={{ title: 'Order' }} />
-        <Stack.Screen name="provider/new" options={{ title: 'New supplier' }} />
-        <Stack.Screen name="scan" options={{ title: 'Scan' }} />
-        <Stack.Screen name="import" options={{ title: 'Import' }} />
-        <Stack.Screen name="photo-import" options={{ title: 'Photograph a list' }} />
+        <Stack.Screen name="medication/new" options={{ title: t('common.titleNewMedication') }} />
+        <Stack.Screen name="medication/[id]/index" options={{ title: t('common.titleMedication') }} />
+        <Stack.Screen name="medication/[id]/edit" options={{ title: t('common.titleEditMedication') }} />
+        <Stack.Screen name="medication/[id]/dose" options={{ title: t('common.titleDose') }} />
+        <Stack.Screen name="medication/[id]/pack" options={{ title: t('common.titleAddPack') }} />
+        <Stack.Screen name="medication/[id]/prescription" options={{ title: t('common.titleAddPrescription') }} />
+        <Stack.Screen name="reorder" options={{ title: t('common.titleNewOrder') }} />
+        <Stack.Screen name="order/[id]" options={{ title: t('common.titleOrder') }} />
+        <Stack.Screen name="provider/new" options={{ title: t('common.titleNewSupplier') }} />
+        <Stack.Screen name="profile/index" options={{ title: t('common.titlePeople') }} />
+        <Stack.Screen name="profile/new" options={{ title: t('common.titleAddPerson') }} />
+        <Stack.Screen name="backup" options={{ title: t('common.titleBackup') }} />
+        <Stack.Screen name="scan" options={{ title: t('common.titleScan') }} />
+        <Stack.Screen name="import" options={{ title: t('common.titleImport') }} />
+        <Stack.Screen name="photo-import" options={{ title: t('common.titlePhotoImport') }} />
       </Stack>
     </ThemeProvider>
   );

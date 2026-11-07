@@ -12,7 +12,7 @@ final class PracticePage
     /** @param array<string, mixed> $request */
     public static function render(array $request, bool $justConfirmed = false): string
     {
-        $de = $request['language'] === 'de';
+        $language = (string) $request['language'];
         $payload = json_decode((string) $request['payload'], true) ?: [];
         $items = is_array($payload['items'] ?? null) ? $payload['items'] : [];
         if ($items === [] && isset($payload['medication'])) {
@@ -21,8 +21,8 @@ final class PracticePage
         }
         $confirmed = $request['status'] === 'confirmed';
 
-        $t = $de
-            ? [
+        $texts = [
+            'de' => [
                 'title' => 'Nachbestellung bestätigen',
                 'intro' => 'Eine Patientin oder ein Patient hat über Easy MedRefill folgende Anfrage gesendet.',
                 'patient' => 'Patient',
@@ -37,8 +37,8 @@ final class PracticePage
                 'confirmed' => 'Vielen Dank, die Anfrage ist als bestätigt markiert. Der Patient sieht das in seiner App.',
                 'already' => 'Diese Anfrage wurde bereits bestätigt.',
                 'footer' => 'Easy MedRefill · Daten werden in der Schweiz gehostet.',
-            ]
-            : [
+            ],
+            'en' => [
                 'title' => 'Confirm reorder request',
                 'intro' => 'A patient sent the following request through Easy MedRefill.',
                 'patient' => 'Patient',
@@ -53,7 +53,41 @@ final class PracticePage
                 'confirmed' => 'Thank you, the request is marked as confirmed. The patient sees this in their app.',
                 'already' => 'This request has already been confirmed.',
                 'footer' => 'Easy MedRefill · Data is hosted in Switzerland.',
-            ];
+            ],
+            'fr' => [
+                'title' => 'Confirmer la demande de commande',
+                'intro' => 'Un patient ou une patiente a envoyé la demande suivante via Easy MedRefill.',
+                'patient' => 'Patient',
+                'medication' => 'Médicament',
+                'medications' => 'Médicaments',
+                'quantity' => 'Quantité',
+                'packs' => 'boîte(s)',
+                'needed' => 'Nécessaire d\'ici le',
+                'reference' => 'Référence',
+                'message' => 'Message',
+                'confirm' => 'Confirmer la réception',
+                'confirmed' => 'Merci, la demande est marquée comme confirmée. Le patient le voit dans son app.',
+                'already' => 'Cette demande a déjà été confirmée.',
+                'footer' => 'Easy MedRefill · Données hébergées en Suisse.',
+            ],
+            'it' => [
+                'title' => 'Confermare la richiesta di ordine',
+                'intro' => 'Un paziente ha inviato la seguente richiesta tramite Easy MedRefill.',
+                'patient' => 'Paziente',
+                'medication' => 'Medicamento',
+                'medications' => 'Medicamenti',
+                'quantity' => 'Quantità',
+                'packs' => 'confezione/i',
+                'needed' => 'Necessario entro il',
+                'reference' => 'Riferimento',
+                'message' => 'Messaggio',
+                'confirm' => 'Conferma ricezione',
+                'confirmed' => 'Grazie, la richiesta è contrassegnata come confermata. Il paziente lo vede nella sua app.',
+                'already' => 'Questa richiesta è già stata confermata.',
+                'footer' => 'Easy MedRefill · Dati ospitati in Svizzera.',
+            ],
+        ];
+        $t = $texts[$language] ?? $texts['en'];
 
         $e = static fn(mixed $v): string => htmlspecialchars((string) ($v ?? '–'), ENT_QUOTES, 'UTF-8');
         $medLine = static function (array $med): string {

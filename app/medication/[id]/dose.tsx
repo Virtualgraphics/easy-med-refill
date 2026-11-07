@@ -5,11 +5,13 @@ import { View } from 'react-native';
 import { Button, Card, Muted, Screen, Segmented, SwitchRow, TextField } from '@/components/ui';
 import { type DosePeriod, formatUnits, getActiveDoseSchedule, isIsoDate, parseNumber, setDoseSchedule, todayIso, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
+import { useI18n } from '@/lib/i18n';
 
 export default function DoseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const db = useDb();
+  const { t } = useI18n();
   const current = useDbQuery((d) => getActiveDoseSchedule(d, id), [id]);
 
   const [units, setUnits] = useState('1');
@@ -31,11 +33,11 @@ export default function DoseScreen() {
 
   const submit = async () => {
     const u = parseNumber(units);
-    const t = parseNumber(times);
+    const n = parseNumber(times);
     const next: typeof errors = {};
-    if (u === null || u <= 0) next.units = 'Must be greater than 0';
-    if (t === null || t < 0) next.times = 'Must be 0 or more';
-    if (!isIsoDate(validFrom)) next.validFrom = 'Use YYYY-MM-DD';
+    if (u === null || u <= 0) next.units = t('medication.greaterThanZero');
+    if (n === null || n < 0) next.times = t('medication.zeroOrMore');
+    if (!isIsoDate(validFrom)) next.validFrom = t('common.dateInvalid');
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
@@ -43,7 +45,7 @@ export default function DoseScreen() {
     try {
       await setDoseSchedule(db, id, {
         units_per_intake: u as number,
-        intakes_per_period: t as number,
+        intakes_per_period: n as number,
         period,
         is_prn: prn,
         valid_from: validFrom,
@@ -56,44 +58,50 @@ export default function DoseScreen() {
 
   const perDay = (() => {
     const u = parseNumber(units);
-    const t = parseNumber(times);
-    if (u === null || t === null) return null;
-    return period === 'week' ? (u * t) / 7 : u * t;
+    const n = parseNumber(times);
+    if (u === null || n === null) return null;
+    return period === 'week' ? (u * n) / 7 : u * n;
   })();
 
   return (
     <Screen scroll>
       <Card className="gap-4">
-        <Muted>Enter the dose exactly as your doctor prescribed it. Easy MedRefill uses it only to forecast when your supply runs out.</Muted>
+        <Muted>{t('medication.doseIntro')}</Muted>
         <View className="flex-row gap-3">
           <View className="flex-1">
-            <TextField label="Units per intake" value={units} onChangeText={setUnits} keyboardType="decimal-pad" error={errors.units} />
+            <TextField label={t('medication.unitsPerIntake')} value={units} onChangeText={setUnits} keyboardType="decimal-pad" error={errors.units} />
           </View>
           <View className="flex-1">
-            <TextField label={`Times per ${period}`} value={times} onChangeText={setTimes} keyboardType="decimal-pad" error={errors.times} />
+            <TextField
+              label={period === 'week' ? t('medication.timesPerWeek') : t('medication.timesPerDay')}
+              value={times}
+              onChangeText={setTimes}
+              keyboardType="decimal-pad"
+              error={errors.times}
+            />
           </View>
         </View>
         <Segmented
-          label="Period"
+          label={t('medication.period')}
           options={[
-            { value: 'day', label: 'Per day' },
-            { value: 'week', label: 'Per week' },
+            { value: 'day', label: t('medication.perDay') },
+            { value: 'week', label: t('medication.perWeek') },
           ]}
           value={period}
           onChange={setPeriod}
         />
-        <SwitchRow label="As needed (PRN)" helper="Consumption is an upper bound, not a plan." value={prn} onValueChange={setPrn} />
+        <SwitchRow label={t('medication.prnLabel')} helper={t('medication.prnHelper')} value={prn} onValueChange={setPrn} />
         <TextField
-          label="Valid from"
+          label={t('medication.validFrom')}
           value={validFrom}
           onChangeText={setValidFrom}
-          placeholder="YYYY-MM-DD"
-          helper="A future date schedules the change; the current dose stays in force until then."
+          placeholder={t('common.dateFormatHint')}
+          helper={t('medication.validFromHelper')}
           error={errors.validFrom}
         />
-        {perDay !== null ? <Muted>Planned consumption: {formatUnits(perDay)} units per day</Muted> : null}
+        {perDay !== null ? <Muted>{t('medication.plannedConsumption', { units: formatUnits(perDay) })}</Muted> : null}
       </Card>
-      <Button title="Save dose" onPress={submit} loading={saving} />
+      <Button title={t('medication.saveDose')} onPress={submit} loading={saving} />
     </Screen>
   );
 }

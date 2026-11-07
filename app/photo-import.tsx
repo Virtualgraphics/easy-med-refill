@@ -9,6 +9,7 @@ import { Body, Button, Muted, Screen } from '@/components/ui';
 import { ApiError, extractPlanFromPhoto, isStubMode } from '@/lib/api';
 import { getBoolSetting, setBoolSetting, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
+import { useI18n } from '@/lib/i18n';
 import { extractedToCandidates, setPendingImport } from '@/lib/scan';
 
 /** Largest side we send; enough to read a printed list, small enough to upload quickly. */
@@ -17,6 +18,7 @@ const TARGET_MAX_SIDE = 2048;
 export default function PhotoImportScreen() {
   const router = useRouter();
   const db = useDb();
+  const { t } = useI18n();
   const consent = useDbQuery((d) => getBoolSetting(d, 'ai_photo_consent'), []);
   const camera = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -44,10 +46,10 @@ export default function PhotoImportScreen() {
     setBusy('capture');
     try {
       const photo = await camera.current.takePictureAsync({ quality: 0.6, base64: true, skipProcessing: false });
-      if (!photo?.base64) throw new Error('No image data');
+      if (!photo?.base64) throw new Error(t('scan.noImageData'));
       setShot({ uri: photo.uri, base64: photo.base64 });
     } catch (e) {
-      Alert.alert('Could not take the photo', e instanceof Error ? e.message : 'Unknown error');
+      Alert.alert(t('scan.couldNotTakePhoto'), e instanceof Error ? e.message : t('common.unknownError'));
     } finally {
       setBusy(null);
     }
@@ -65,10 +67,10 @@ export default function PhotoImportScreen() {
       });
       const asset = result.assets?.[0];
       if (result.canceled || !asset) return;
-      if (!asset.base64) throw new Error('No image data');
+      if (!asset.base64) throw new Error(t('scan.noImageData'));
       setShot({ uri: asset.uri, base64: asset.base64 });
     } catch (e) {
-      Alert.alert('Could not open the photo', e instanceof Error ? e.message : 'Unknown error');
+      Alert.alert(t('scan.couldNotOpenPhoto'), e instanceof Error ? e.message : t('common.unknownError'));
     } finally {
       setBusy(null);
     }
@@ -81,23 +83,19 @@ export default function PhotoImportScreen() {
       const plan = await extractPlanFromPhoto(shot.base64, 'image/jpeg');
       const candidates = extractedToCandidates(plan);
       if (candidates.length === 0) {
-        Alert.alert('Nothing found', plan.notes ?? 'No medications were recognised. Try a sharper, straighter photo with the whole list in frame.', [
-          { text: 'Retake', onPress: () => setShot(null) },
-        ]);
+        Alert.alert(t('scan.nothingFoundTitle'), plan.notes ?? t('scan.nothingFoundBody'), [{ text: t('scan.retake'), onPress: () => setShot(null) }]);
         return;
       }
       setPendingImport({
         source: 'photo',
         candidates,
-        summary: `Read from a photo · ${candidates.length} ${candidates.length === 1 ? 'entry' : 'entries'}`,
+        summary: `${t('scan.readFromPhoto')} · ${t('scan.entries', { count: candidates.length })}`,
         patientLine: null,
-        warning: plan.patient_fields_seen
-          ? 'The list carried personal details. They were not transcribed and the photo was not stored.'
-          : null,
+        warning: plan.patient_fields_seen ? t('scan.personalDetailsWarning') : null,
       });
       router.replace('/import');
     } catch (e) {
-      Alert.alert('Could not read the list', e instanceof ApiError ? e.message : 'Unknown error');
+      Alert.alert(t('scan.couldNotReadList'), e instanceof ApiError ? e.message : t('common.unknownError'));
     } finally {
       setBusy(null);
     }
@@ -112,10 +110,10 @@ export default function PhotoImportScreen() {
   if (isStubMode()) {
     return (
       <Screen>
-        <Stack.Screen options={{ title: 'Photograph a list' }} />
+        <Stack.Screen options={{ title: t('scan.photographList') }} />
         <View className="flex-1 items-center justify-center gap-3 px-6">
-          <Body className="text-center font-semibold">Reading a paper list needs the server.</Body>
-          <Muted className="text-center">Set the server address in the app configuration, then try again.</Muted>
+          <Body className="text-center font-semibold">{t('scan.needsServer')}</Body>
+          <Muted className="text-center">{t('scan.setServer')}</Muted>
         </View>
       </Screen>
     );
@@ -124,7 +122,7 @@ export default function PhotoImportScreen() {
   if (consent.data === null || consent.loading) {
     return (
       <Screen>
-        <Stack.Screen options={{ title: 'Photograph a list' }} />
+        <Stack.Screen options={{ title: t('scan.photographList') }} />
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color="#0B5CAB" />
         </View>
@@ -135,7 +133,7 @@ export default function PhotoImportScreen() {
   if (!consent.data) {
     return (
       <>
-        <Stack.Screen options={{ title: 'Photograph a list' }} />
+        <Stack.Screen options={{ title: t('scan.photographList') }} />
         <AiConsentScreen
           onAllow={async () => {
             await setBoolSetting(db, 'ai_photo_consent', true);
@@ -153,10 +151,10 @@ export default function PhotoImportScreen() {
   if (!permission?.granted) {
     return (
       <Screen>
-        <Stack.Screen options={{ title: 'Photograph a list' }} />
+        <Stack.Screen options={{ title: t('scan.photographList') }} />
         <View className="flex-1 items-center justify-center gap-4 px-6">
-          <Body className="text-center font-semibold">Camera access is needed to photograph the list.</Body>
-          <Button title="Allow camera" onPress={() => requestPermission()} />
+          <Body className="text-center font-semibold">{t('scan.cameraNeededPhoto')}</Body>
+          <Button title={t('scan.allowCamera')} onPress={() => requestPermission()} />
         </View>
       </Screen>
     );
@@ -165,14 +163,12 @@ export default function PhotoImportScreen() {
   if (shot) {
     return (
       <View className="flex-1 bg-black">
-        <Stack.Screen options={{ title: 'Check the photo' }} />
+        <Stack.Screen options={{ title: t('scan.checkPhoto') }} />
         <Image source={{ uri: shot.uri }} style={{ flex: 1 }} resizeMode="contain" />
         <View className="gap-3 bg-black/80 p-5 pb-8">
-          <Text className="text-center text-sm text-neutral-200">
-            Readable and the whole list in frame? Reading takes a few seconds.
-          </Text>
-          <Button title={busy === 'read' ? 'Reading the list…' : 'Read this list'} onPress={read} loading={busy === 'read'} />
-          <Button title="Retake" variant="secondary" onPress={() => setShot(null)} disabled={busy === 'read'} />
+          <Text className="text-center text-sm text-neutral-200">{t('scan.readableQuestion')}</Text>
+          <Button title={busy === 'read' ? t('scan.readingList') : t('scan.readThisList')} onPress={read} loading={busy === 'read'} />
+          <Button title={t('scan.retake')} variant="secondary" onPress={() => setShot(null)} disabled={busy === 'read'} />
         </View>
       </View>
     );
@@ -180,16 +176,14 @@ export default function PhotoImportScreen() {
 
   return (
     <View className="flex-1 bg-black">
-      <Stack.Screen options={{ title: 'Photograph a list' }} />
+      <Stack.Screen options={{ title: t('scan.photographList') }} />
       <CameraView ref={camera} style={{ flex: 1 }} facing="back" pictureSize={pictureSize} onCameraReady={onCameraReady} />
       <View className="absolute inset-x-0 bottom-0 gap-3 bg-black/70 p-5 pb-8">
-        <Text className="text-center text-base font-semibold text-white">Lay the list flat, fill the frame, avoid glare.</Text>
-        <Text className="text-center text-xs text-neutral-300">
-          The photo is sent to the Easy MedRefill server and read by Meta's AI. It is not stored. Cover your name and address if you prefer.
-        </Text>
-        {busy === 'capture' ? <ActivityIndicator color="#fff" /> : <Button title="Take photo" onPress={capture} />}
-        <Button title="Choose from gallery" variant="secondary" onPress={pickFromGallery} disabled={busy === 'capture'} />
-        <Button title="Cancel" variant="ghost" onPress={() => router.back()} />
+        <Text className="text-center text-base font-semibold text-white">{t('scan.layFlat')}</Text>
+        <Text className="text-center text-xs text-neutral-300">{t('scan.photoNotice')}</Text>
+        {busy === 'capture' ? <ActivityIndicator color="#fff" /> : <Button title={t('scan.takePhoto')} onPress={capture} />}
+        <Button title={t('scan.chooseGallery')} variant="secondary" onPress={pickFromGallery} disabled={busy === 'capture'} />
+        <Button title={t('common.cancel')} variant="ghost" onPress={() => router.back()} />
       </View>
     </View>
   );

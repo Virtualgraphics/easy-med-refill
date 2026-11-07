@@ -2,7 +2,16 @@ import type { DbClient } from '../client';
 import { nowIso } from '../clock';
 
 /** Known preference keys. Values are strings; booleans are '1' / '0'. */
-export type SettingKey = 'reminders_enabled' | 'theme' | 'shortages_synced_at' | 'ai_photo_consent' | 'detail_sections_open';
+export type SettingKey =
+  | 'reminders_enabled'
+  | 'theme'
+  | 'shortages_synced_at'
+  | 'ai_photo_consent'
+  | 'detail_sections_open'
+  /** Profile shown in the app; absent means the default profile. */
+  | 'active_profile_id'
+  /** UI language: 'system' or a locale code. */
+  | 'language';
 
 export async function getSetting(db: DbClient, key: SettingKey): Promise<string | null> {
   const row = await db.getFirstAsync<{ value: string | null }>('SELECT value FROM app_settings WHERE key = ?', [key]);

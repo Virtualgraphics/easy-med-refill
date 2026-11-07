@@ -60,7 +60,9 @@
         {
           "photosPermission": "Easy MedRefill opens a photo only to read a medication list you choose."
         }
-      ]
+      ],
+      "expo-localization",
+      "./plugins/withShortCxxDir"
     ],
     "experiments": {
       "typedRoutes": true

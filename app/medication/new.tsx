@@ -5,6 +5,7 @@ import { MedicationForm } from '@/components/forms/MedicationForm';
 import { Screen } from '@/components/ui';
 import { createMedication, listProviders, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
+import { useI18n } from '@/lib/i18n';
 import { useProfile } from '@/lib/profile/ProfileContext';
 
 export default function NewMedicationScreen() {
@@ -12,6 +13,7 @@ export default function NewMedicationScreen() {
   const router = useRouter();
   const db = useDb();
   const { profile } = useProfile();
+  const { t } = useI18n();
   const providers = useDbQuery((d) => listProviders(d, profile.id), [profile.id]);
 
   return (
@@ -19,7 +21,7 @@ export default function NewMedicationScreen() {
       <MedicationForm
         defaults={gtin ? { gtin } : undefined}
         providers={providers.data ?? []}
-        submitLabel="Add medication"
+        submitLabel={t('medication.addMedication')}
         onSubmit={async (values) => {
           const created = await createMedication(db, { profile_id: profile.id, ...values });
           router.replace({ pathname: '/medication/[id]', params: { id: created.id } });

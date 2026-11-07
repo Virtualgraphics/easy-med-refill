@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 
+import { useI18n } from '@/lib/i18n';
 import type { SupplyForecast } from '@/lib/supply';
 
 /** Bars are drawn against this many days; longer runways fill the bar. */
@@ -39,37 +40,38 @@ function Bar({ label, days, caption, tone }: { label: string; days: number | nul
 
 /** The two runways side by side: pills on hand and prescription validity. */
 export function RunwayBars({ forecast }: { forecast: SupplyForecast }) {
+  const { t } = useI18n();
   const margin = forecast.lead_time_days + forecast.safety_buffer_days;
 
   const pillDays = forecast.pill_runway_days;
-  const pillCaption = pillDays === null ? 'no dose' : pillDays === 0 ? 'empty' : `${pillDays} d`;
+  const pillCaption = pillDays === null ? t('dashboard.capNoDose') : pillDays === 0 ? t('dashboard.capEmpty') : t('common.daysShort', { count: pillDays });
 
   let rxDays: number | null = forecast.prescription_runway_days;
   let rxCaption: string;
   let rxTone: Tone;
   switch (forecast.prescription_status) {
     case 'none':
-      rxCaption = 'none';
+      rxCaption = t('dashboard.capNone');
       rxTone = 'neutral';
       rxDays = null;
       break;
     case 'expired':
-      rxCaption = 'expired';
+      rxCaption = t('dashboard.capExpired');
       rxTone = 'critical';
       rxDays = 0;
       break;
     case 'exhausted':
-      rxCaption = 'no refills';
+      rxCaption = t('dashboard.capNoRefills');
       rxTone = 'critical';
       rxDays = 0;
       break;
     case 'valid':
       if (rxDays === null) {
-        rxCaption = 'open';
+        rxCaption = t('dashboard.capOpen');
         rxTone = 'ok';
         rxDays = HORIZON_DAYS;
       } else {
-        rxCaption = `${rxDays} d`;
+        rxCaption = t('common.daysShort', { count: rxDays });
         rxTone = toneForDays(rxDays, margin);
       }
       break;
@@ -77,8 +79,8 @@ export function RunwayBars({ forecast }: { forecast: SupplyForecast }) {
 
   return (
     <View className="gap-1.5">
-      <Bar label="Pills" days={pillDays} caption={pillCaption} tone={toneForDays(pillDays, margin)} />
-      <Bar label="Rx" days={rxDays} caption={rxCaption} tone={rxTone} />
+      <Bar label={t('dashboard.barPills')} days={pillDays} caption={pillCaption} tone={toneForDays(pillDays, margin)} />
+      <Bar label={t('dashboard.barRx')} days={rxDays} caption={rxCaption} tone={rxTone} />
     </View>
   );
 }

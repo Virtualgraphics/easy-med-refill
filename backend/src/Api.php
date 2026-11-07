@@ -119,8 +119,8 @@ final class Api
             $fail('request_id must be a UUID');
         }
         $language = (string) ($in['language'] ?? 'de');
-        if (!in_array($language, ['de', 'en'], true)) {
-            $fail('language must be de or en');
+        if (!in_array($language, ['de', 'en', 'fr', 'it'], true)) {
+            $fail('language must be de, en, fr or it');
         }
         $provider = is_array($in['provider'] ?? null) ? $in['provider'] : [];
         if (!in_array($provider['kind'] ?? null, ['practice', 'pharmacy'], true)) {

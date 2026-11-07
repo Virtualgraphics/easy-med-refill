@@ -25,6 +25,7 @@ import {
   useDb,
 } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
+import { LOCALE_NAMES, LOCALES, useI18n } from '@/lib/i18n';
 import { useProfile } from '@/lib/profile/ProfileContext';
 import { buildReorderPayload, type ReorderItemInput, renderReorderMessage, requestReference, suggestReorder } from '@/lib/reorder';
 import { describeAction, forecastAll, type SupplyForecast } from '@/lib/supply';
@@ -71,6 +72,7 @@ export default function ReorderScreen() {
   const { medicationId } = useLocalSearchParams<{ medicationId?: string }>();
   const router = useRouter();
   const db = useDb();
+  const { t, locale } = useI18n();
   const { profile } = useProfile();
   const { data, loading } = useDbQuery((d) => loadReorder(d, profile.id), [profile.id]);
 
@@ -79,7 +81,7 @@ export default function ReorderScreen() {
   const [neededBy, setNeededBy] = useState('');
   const [neededByTouched, setNeededByTouched] = useState(false);
   const [note, setNote] = useState('');
-  const [language, setLanguage] = useState<ReorderLanguage>('de');
+  const [language, setLanguage] = useState<ReorderLanguage>(locale);
   const [initialised, setInitialised] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -177,7 +179,7 @@ export default function ReorderScreen() {
   if (!data) {
     return (
       <Screen>
-        <View className="flex-1 items-center justify-center">{loading ? <ActivityIndicator color="#0B5CAB" /> : <Muted>Nothing to order.</Muted>}</View>
+        <View className="flex-1 items-center justify-center">{loading ? <ActivityIndicator color="#0B5CAB" /> : <Muted>{t('orders.nothingToOrder')}</Muted>}</View>
       </Screen>
     );
   }
@@ -186,19 +188,19 @@ export default function ReorderScreen() {
     return (
       <Screen scroll>
         <Card className="gap-3">
-          <Body className="font-semibold">Add a practice or pharmacy first</Body>
-          <Muted>Orders are sent to a supplier by email. Add one under Settings, then come back.</Muted>
-          <Button title="Add supplier" onPress={() => router.push('/provider/new')} />
+          <Body className="font-semibold">{t('orders.addSupplierFirst')}</Body>
+          <Muted>{t('orders.addSupplierFirstBody')}</Muted>
+          <Button title={t('orders.addSupplier')} onPress={() => router.push('/provider/new')} />
         </Card>
       </Screen>
     );
   }
 
   const approve = async () => {
-    if (!provider) return Alert.alert('Choose a supplier');
-    if (!provider.email) return Alert.alert('No email address', `${provider.name} has no email address. Add one under Settings.`);
-    if (selectedRows.length === 0) return Alert.alert('Nothing selected', 'Tick at least one medication.');
-    if (!isIsoDate(neededBy)) return Alert.alert('Needed by', 'Use the format YYYY-MM-DD.');
+    if (!provider) return Alert.alert(t('orders.chooseSupplier'));
+    if (!provider.email) return Alert.alert(t('orders.noEmailTitle'), t('orders.noEmailBody', { name: provider.name }));
+    if (selectedRows.length === 0) return Alert.alert(t('orders.nothingSelected'), t('orders.nothingSelectedBody'));
+    if (!isIsoDate(neededBy)) return Alert.alert(t('orders.neededByLabel'), t('common.dateInvalid'));
     if (!preview) return;
 
     setSaving(true);
@@ -247,8 +249,8 @@ export default function ReorderScreen() {
           expected_by: addDays(todayIso(), Math.round(effectiveLeadTimeDays(provider))),
         });
       } catch (e) {
-        const reason = e instanceof ApiError ? e.message : 'Unknown error';
-        Alert.alert('Saved, not sent yet', `${reason} The order is kept and can be sent from the Orders tab.`);
+        const reason = e instanceof ApiError ? e.message : t('common.unknownError');
+        Alert.alert(t('orders.savedNotSent'), t('orders.savedNotSentBody', { reason }));
       }
       router.replace({ pathname: '/order/[id]', params: { id: batchId } });
     } finally {
@@ -257,31 +259,31 @@ export default function ReorderScreen() {
   };
 
   const count = selectedRows.length;
-  const title = count === 0 ? 'Approve and send' : `Approve and send (${count} ${count === 1 ? 'medication' : 'medications'})`;
+  const title = count === 0 ? t('orders.approveSend') : t('orders.approveSendCount', { medications: t('common.medications', { count }) });
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ title: 'New order' }} />
+      <Stack.Screen options={{ title: t('orders.newOrderTitle') }} />
 
       <Card className="gap-4">
-        <Segmented label="Send to" options={data.providers.map((p) => ({ value: p.id, label: p.name }))} value={providerId} onChange={setProviderId} />
-        {provider && !provider.email ? <Muted className="text-status-critical">This supplier has no email address.</Muted> : null}
-        {provider ? <Muted>Typical lead time {Math.round(effectiveLeadTimeDays(provider))} days. One email, one pickup.</Muted> : null}
-        {!profile.patient_reference ? <Muted className="text-amber-700">No patient reference set. Add one under Settings so the practice can match the order.</Muted> : null}
+        <Segmented label={t('orders.sendTo')} options={data.providers.map((p) => ({ value: p.id, label: p.name }))} value={providerId} onChange={setProviderId} />
+        {provider && !provider.email ? <Muted className="text-status-critical">{t('orders.supplierNoEmail')}</Muted> : null}
+        {provider ? <Muted>{t('orders.leadTimeLine', { days: t('common.days', { count: Math.round(effectiveLeadTimeDays(provider)) }) })}</Muted> : null}
+        {!profile.patient_reference ? <Muted className="text-amber-700">{t('orders.noPatientReference')}</Muted> : null}
       </Card>
 
-      <Section title="Medications">
+      <Section title={t('orders.medications')}>
         <View className="overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
           {data.rows.length === 0 ? (
             <View className="p-4">
-              <Muted>{data.onOrder > 0 ? 'Everything is already on order.' : 'No medications yet.'}</Muted>
+              <Muted>{data.onOrder > 0 ? t('orders.everythingOnOrder') : t('orders.noMedicationsYet')}</Muted>
             </View>
           ) : null}
           {data.rows.map((row, index) => {
             const med = row.supply.medication;
             const selected = quantities.has(med.id);
             const qty = quantities.get(med.id) ?? 0;
-            const packLabel = row.supply.last_pack_size ? `packs of ${formatUnits(row.supply.last_pack_size)}` : 'packs';
+            const packLabel = row.supply.last_pack_size ? t('orders.packsOf', { size: formatUnits(row.supply.last_pack_size) }) : t('orders.packsPlain');
             return (
               <View key={med.id} className={index > 0 ? 'border-t border-neutral-100 dark:border-neutral-800' : ''}>
                 <Pressable
@@ -295,7 +297,7 @@ export default function ReorderScreen() {
                     <Muted numberOfLines={1}>
                       {[
                         med.strength && !med.name.toLowerCase().includes(med.strength.toLowerCase()) ? med.strength : null,
-                        `${formatUnits(row.supply.units_on_hand)} on hand`,
+                        t('orders.onHand', { units: formatUnits(row.supply.units_on_hand) }),
                         describeAction(row.forecast),
                       ]
                         .filter(Boolean)
@@ -320,45 +322,40 @@ export default function ReorderScreen() {
           })}
         </View>
         {data.onOrder > 0 ? (
-          <Muted className="mt-2">
-            {data.onOrder} {data.onOrder === 1 ? 'medication is' : 'medications are'} already on order and not listed.
-          </Muted>
+          <Muted className="mt-2">{t('orders.alreadyOnOrder', { count: data.onOrder })}</Muted>
         ) : null}
       </Section>
 
       <Card className="gap-4">
         <TextField
-          label="Needed by"
+          label={t('orders.neededByLabel')}
           value={neededBy}
           onChangeText={(v) => {
             setNeededByTouched(true);
             setNeededBy(v);
           }}
-          placeholder="YYYY-MM-DD"
+          placeholder={t('common.dateFormatHint')}
         />
-        <TextField label="Note to the supplier" value={note} onChangeText={setNote} placeholder="optional" multiline />
+        <TextField label={t('orders.noteToSupplier')} value={note} onChangeText={setNote} placeholder={t('common.optional')} multiline />
         <Segmented
-          label="Language"
-          options={[
-            { value: 'de', label: 'Deutsch' },
-            { value: 'en', label: 'English' },
-          ]}
+          label={t('orders.language')}
+          options={LOCALES.map((code) => ({ value: code, label: LOCALE_NAMES[code] }))}
           value={language}
           onChange={setLanguage}
         />
       </Card>
 
       {preview ? (
-        <Section title="Message preview">
+        <Section title={t('orders.messagePreview')}>
           <Card className="gap-2">
             <Body className="font-semibold">{preview.subject}</Body>
             <Text className="font-mono text-xs leading-5 text-neutral-800 dark:text-neutral-200">{preview.body}</Text>
-            <Muted>Fixed template; only the values change. Nothing is sent until you approve.</Muted>
+            <Muted>{t('orders.fixedTemplate')}</Muted>
           </Card>
         </Section>
       ) : null}
 
-      <Button title={isStubMode() ? 'Approve (no server: tracked locally)' : title} onPress={approve} loading={saving} disabled={count === 0} />
+      <Button title={isStubMode() ? t('orders.approveLocal') : title} onPress={approve} loading={saving} disabled={count === 0} />
     </Screen>
   );
 }

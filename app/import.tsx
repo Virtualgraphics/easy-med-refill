@@ -5,6 +5,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { Badge, Body, Button, Card, Muted, Screen, TextField, Title } from '@/components/ui';
 import { createMedication, listMedications, setDoseSchedule, useDb } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
+import { useI18n } from '@/lib/i18n';
 import { useProfile } from '@/lib/profile/ProfileContext';
 import { type ImportCandidate, type PendingImport, takePendingImport } from '@/lib/scan';
 
@@ -18,6 +19,7 @@ export default function ImportScreen() {
   const router = useRouter();
   const db = useDb();
   const { profile } = useProfile();
+  const { t } = useI18n();
   const [payload] = useState<PendingImport | null>(() => takePendingImport());
   const existing = useDbQuery((d) => listMedications(d, profile.id, { includeArchived: true }), [profile.id]);
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -44,9 +46,9 @@ export default function ImportScreen() {
     return (
       <Screen>
         <View className="flex-1 items-center justify-center gap-3 px-6">
-          <Title>Nothing to import</Title>
-          <Muted className="text-center">Scan an eMediplan code or photograph a paper list first.</Muted>
-          <Button title="Scan" onPress={() => router.replace('/scan')} />
+          <Title>{t('scan.nothingToImport')}</Title>
+          <Muted className="text-center">{t('scan.scanFirst')}</Muted>
+          <Button title={t('scan.scan')} onPress={() => router.replace('/scan')} />
         </View>
       </Screen>
     );
@@ -60,7 +62,7 @@ export default function ImportScreen() {
 
   const importAll = async () => {
     if (unnamed.length > 0) {
-      Alert.alert('Name required', 'Give every selected medication a name, or deselect it.');
+      Alert.alert(t('scan.nameRequiredTitle'), t('scan.nameRequiredBody'));
       return;
     }
     setSaving(true);
@@ -94,28 +96,30 @@ export default function ImportScreen() {
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ title: photo ? 'Import from photo' : 'Import from eMediplan' }} />
+      <Stack.Screen options={{ title: photo ? t('scan.importFromPhoto') : t('scan.importFromEmediplan') }} />
       <Card className="gap-1">
         <Body className="font-semibold">{payload.summary}</Body>
         {payload.patientLine ? <Muted>{payload.patientLine}</Muted> : null}
-        <Muted>Only the medications are imported, never personal details.</Muted>
-        <Muted>
-          {photo
-            ? 'Transcribed by AI from your photo: check every name and dose against the paper before importing.'
-            : 'The plan carries product codes, not names. Check each name before importing.'}
-        </Muted>
+        <Muted>{t('scan.onlyMedications')}</Muted>
+        <Muted>{photo ? t('scan.checkPhotoTranscription') : t('scan.checkCodes')}</Muted>
         {payload.warning ? <Muted className="text-amber-700">{payload.warning}</Muted> : null}
       </Card>
 
       {rows === null ? (
-        <Muted>Checking against your list…</Muted>
+        <Muted>{t('scan.checkingList')}</Muted>
       ) : (
         rows.map((row) => (
           <Card key={row.key} className="gap-3">
             <View className="flex-row items-start justify-between gap-3">
               <View className="flex-1 gap-1">
                 <Muted>
-                  {row.gtin ? `GTIN ${row.gtin}` : row.pharmacode ? `Pharmacode ${row.pharmacode}` : photo ? 'From the photo' : 'No product code'}
+                  {row.gtin
+                    ? t('scan.gtinLine', { gtin: row.gtin })
+                    : row.pharmacode
+                      ? t('scan.pharmacodeLine', { pharmacode: row.pharmacode })
+                      : photo
+                        ? t('scan.fromPhoto')
+                        : t('scan.noProductCode')}
                 </Muted>
                 <Body>{row.doseSummary}</Body>
                 {row.notes ? <Muted>{row.notes}</Muted> : null}
@@ -131,21 +135,27 @@ export default function ImportScreen() {
                 {row.include ? <Text className="text-base font-bold text-white">✓</Text> : null}
               </Pressable>
             </View>
-            {row.existingName ? <Badge text={`Already in your list as ${row.existingName}`} tone="brand" /> : null}
+            {row.existingName ? <Badge text={t('scan.alreadyInList', { name: row.existingName })} tone="brand" /> : null}
             {row.include ? (
-              <TextField label="Name" value={row.name} onChangeText={(name) => update(row.key, { name })} placeholder="e.g. Tacrolimus 1 mg" error={row.name.trim() === '' ? 'Name is required' : null} />
+              <TextField
+                label={t('scan.nameLabel')}
+                value={row.name}
+                onChangeText={(name) => update(row.key, { name })}
+                placeholder={t('scan.namePlaceholder')}
+                error={row.name.trim() === '' ? t('scan.nameRequired') : null}
+              />
             ) : null}
           </Card>
         ))
       )}
 
       <Button
-        title={selected.length === 0 ? 'Nothing selected' : `Import ${selected.length} ${selected.length === 1 ? 'medication' : 'medications'}`}
+        title={selected.length === 0 ? t('scan.nothingSelected') : t('scan.importCount', { medications: t('common.medications', { count: selected.length }) })}
         onPress={importAll}
         disabled={selected.length === 0}
         loading={saving}
       />
-      <Button title="Cancel" variant="ghost" onPress={() => router.dismissTo('/')} />
+      <Button title={t('common.cancel')} variant="ghost" onPress={() => router.dismissTo('/')} />
     </Screen>
   );
 }

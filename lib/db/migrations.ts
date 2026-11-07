@@ -220,6 +220,56 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX idx_reorder_requests_batch ON reorder_requests(batch_id);
     `,
   },
+  {
+    version: 5,
+    name: 'reorder-languages',
+    // Reorder emails in French and Italian too. The language CHECK cannot be
+    // altered in SQLite, so the table is rebuilt with the same columns.
+    // Nothing references reorder_requests, so the copy is a plain insert.
+    sql: `
+      CREATE TABLE reorder_requests_v5 (
+        id                         TEXT PRIMARY KEY NOT NULL,
+        medication_id              TEXT NOT NULL REFERENCES medications(id) ON DELETE CASCADE,
+        provider_id                TEXT NOT NULL REFERENCES providers(id) ON DELETE RESTRICT,
+        prescription_id            TEXT REFERENCES prescriptions(id) ON DELETE SET NULL,
+        status                     TEXT NOT NULL DEFAULT 'draft'
+                                   CHECK (status IN ('draft', 'approved', 'sent', 'confirmed', 'received', 'overdue', 'cancelled')),
+        quantity_packs             INTEGER NOT NULL CHECK (quantity_packs > 0),
+        units_remaining_at_request REAL,
+        needed_by                  TEXT,
+        approved_at                TEXT,
+        sent_at                    TEXT,
+        confirmed_at               TEXT,
+        received_at                TEXT,
+        overdue_at                 TEXT,
+        cancelled_at               TEXT,
+        follow_up_count            INTEGER NOT NULL DEFAULT 0 CHECK (follow_up_count >= 0),
+        server_reference           TEXT,
+        created_at                 TEXT NOT NULL,
+        updated_at                 TEXT NOT NULL,
+        note                       TEXT,
+        language                   TEXT NOT NULL DEFAULT 'de' CHECK (language IN ('de', 'en', 'fr', 'it')),
+        message_subject            TEXT,
+        message_body               TEXT,
+        expected_by                TEXT,
+        batch_id                   TEXT NOT NULL DEFAULT ''
+      );
+      INSERT INTO reorder_requests_v5 (
+        id, medication_id, provider_id, prescription_id, status, quantity_packs, units_remaining_at_request, needed_by,
+        approved_at, sent_at, confirmed_at, received_at, overdue_at, cancelled_at, follow_up_count, server_reference,
+        created_at, updated_at, note, language, message_subject, message_body, expected_by, batch_id)
+      SELECT
+        id, medication_id, provider_id, prescription_id, status, quantity_packs, units_remaining_at_request, needed_by,
+        approved_at, sent_at, confirmed_at, received_at, overdue_at, cancelled_at, follow_up_count, server_reference,
+        created_at, updated_at, note, language, message_subject, message_body, expected_by, batch_id
+      FROM reorder_requests;
+      DROP TABLE reorder_requests;
+      ALTER TABLE reorder_requests_v5 RENAME TO reorder_requests;
+      CREATE INDEX idx_reorder_requests_medication ON reorder_requests(medication_id);
+      CREATE INDEX idx_reorder_requests_status ON reorder_requests(status);
+      CREATE INDEX idx_reorder_requests_batch ON reorder_requests(batch_id);
+    `,
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = migrations[migrations.length - 1].version;

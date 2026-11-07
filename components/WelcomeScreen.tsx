@@ -3,6 +3,7 @@ import { Image, ImageBackground, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
 
 interface WelcomeScreenProps {
   onScan: () => void;
@@ -19,6 +20,7 @@ interface WelcomeScreenProps {
  */
 export function WelcomeScreen({ onScan, onPhoto, onAddManually, onLoadDemo, loadingDemo }: WelcomeScreenProps) {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   return (
     <ImageBackground
       source={require('../assets/images/medi_start_back.jpg')}
@@ -33,16 +35,16 @@ export function WelcomeScreen({ onScan, onPhoto, onAddManually, onLoadDemo, load
             accessibilityLabel="Easy MedRefill"
             accessibilityIgnoresInvertColors
           />
-          <Text className="text-2xl font-bold text-brand-700 dark:text-brand-300">Easy MedRefill</Text>
-          <Text className="mb-1 text-center text-sm text-neutral-600 dark:text-neutral-300">Start with your medication list</Text>
+          <Text className="text-2xl font-bold text-brand-700 dark:text-brand-300">{t('common.appName')}</Text>
+          <Text className="mb-1 text-center text-sm text-neutral-600 dark:text-neutral-300">{t('dashboard.welcomeStart')}</Text>
           <View className="w-full gap-3">
-            <Button title="Scan eMediplan or pack" onPress={onScan} />
-            <Button title="Photograph a paper list" variant="secondary" onPress={onPhoto} />
-            <Button title="Add a medication manually" variant="ghost" onPress={onAddManually} />
-            <Button title="Explore with demo data" variant="ghost" onPress={onLoadDemo} loading={loadingDemo} />
+            <Button title={t('dashboard.welcomeScan')} onPress={onScan} />
+            <Button title={t('dashboard.welcomePhoto')} variant="secondary" onPress={onPhoto} />
+            <Button title={t('dashboard.welcomeManual')} variant="ghost" onPress={onAddManually} />
+            <Button title={t('dashboard.welcomeDemo')} variant="ghost" onPress={onLoadDemo} loading={loadingDemo} />
           </View>
           <Text className="text-center text-xs text-neutral-500 dark:text-neutral-400">
-            Everything stays on this phone, encrypted. Nothing is uploaded until you approve a reorder.
+            {t('dashboard.welcomeFooter')}
           </Text>
         </View>
       </View>

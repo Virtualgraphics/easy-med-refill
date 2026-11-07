@@ -3,6 +3,7 @@ import { View } from 'react-native';
 
 import { Button, Card, Muted, Segmented, SwitchRow, TextField } from '@/components/ui';
 import { defaultSafetyBufferDays, type MedicationRow, parseNumber, type ProviderRow } from '@/lib/db';
+import { useI18n } from '@/lib/i18n';
 
 export interface MedicationFormValues {
   name: string;
@@ -30,6 +31,7 @@ const orEmpty = (v: string | null | undefined) => v ?? '';
 const orNull = (v: string) => (v.trim() === '' ? null : v.trim());
 
 export function MedicationForm({ initial, defaults, providers, submitLabel, onSubmit }: MedicationFormProps) {
+  const { t } = useI18n();
   const [name, setName] = useState(orEmpty(initial?.name ?? defaults?.name));
   const [activeIngredient, setActiveIngredient] = useState(orEmpty(initial?.active_ingredient));
   const [strength, setStrength] = useState(orEmpty(initial?.strength));
@@ -54,9 +56,9 @@ export function MedicationForm({ initial, defaults, providers, submitLabel, onSu
   const submit = async () => {
     const bufferDays = parseNumber(buffer);
     const next: typeof errors = {};
-    if (name.trim() === '') next.name = 'Name is required';
-    if (bufferDays === null || bufferDays < 0 || !Number.isInteger(bufferDays)) next.buffer = 'Whole number of days';
-    if (gtin.trim() !== '' && !/^\d{8,14}$/.test(gtin.trim())) next.gtin = 'GTIN is 8 to 14 digits';
+    if (name.trim() === '') next.name = t('medication.nameRequired');
+    if (bufferDays === null || bufferDays < 0 || !Number.isInteger(bufferDays)) next.buffer = t('medication.bufferError');
+    if (gtin.trim() !== '' && !/^\d{8,14}$/.test(gtin.trim())) next.gtin = t('medication.gtinError');
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
@@ -80,51 +82,46 @@ export function MedicationForm({ initial, defaults, providers, submitLabel, onSu
   };
 
   const providerOptions = [
-    { value: 'none', label: 'None' },
+    { value: 'none', label: t('medication.none') },
     ...providers.map((p) => ({ value: p.id, label: p.name })),
   ];
 
   return (
     <View className="gap-4">
       <Card className="gap-4">
-        <TextField label="Name" value={name} onChangeText={setName} placeholder="e.g. Tacrolimus 1 mg" error={errors.name} autoFocus={!initial} />
-        <TextField label="Active ingredient" value={activeIngredient} onChangeText={setActiveIngredient} placeholder="optional" />
+        <TextField label={t('medication.nameLabel')} value={name} onChangeText={setName} placeholder={t('medication.namePlaceholder')} error={errors.name} autoFocus={!initial} />
+        <TextField label={t('medication.activeIngredient')} value={activeIngredient} onChangeText={setActiveIngredient} placeholder={t('common.optional')} />
         <View className="flex-row gap-3">
           <View className="flex-1">
-            <TextField label="Strength" value={strength} onChangeText={setStrength} placeholder="1 mg" />
+            <TextField label={t('medication.strength')} value={strength} onChangeText={setStrength} placeholder={t('medication.strengthPlaceholder')} />
           </View>
           <View className="flex-1">
-            <TextField label="Form" value={form} onChangeText={setForm} placeholder="capsule" />
+            <TextField label={t('medication.form')} value={form} onChangeText={setForm} placeholder={t('medication.formPlaceholder')} />
           </View>
         </View>
       </Card>
 
       <Card className="gap-4">
-        <SwitchRow
-          label="Critical medication"
-          helper="Immunosuppressants and similar. Reorders start earlier."
-          value={isCritical}
-          onValueChange={toggleCritical}
-        />
+        <SwitchRow label={t('medication.criticalLabel')} helper={t('medication.criticalHelper')} value={isCritical} onValueChange={toggleCritical} />
         <TextField
-          label="Safety buffer (days)"
+          label={t('medication.bufferLabel')}
           value={buffer}
           onChangeText={(v) => {
             setBuffer(v);
             setBufferTouched(true);
           }}
           keyboardType="number-pad"
-          helper="Reorder when supply drops to this many days."
+          helper={t('medication.bufferHelper')}
           error={errors.buffer}
         />
-        <Segmented label="Preferred supplier" options={providerOptions} value={providerId} onChange={setProviderId} />
-        {providers.length === 0 ? <Muted>Add practices and pharmacies under Settings.</Muted> : null}
+        <Segmented label={t('medication.preferredSupplier')} options={providerOptions} value={providerId} onChange={setProviderId} />
+        {providers.length === 0 ? <Muted>{t('medication.addSuppliersHint')}</Muted> : null}
       </Card>
 
       <Card className="gap-4">
-        <TextField label="GTIN" value={gtin} onChangeText={setGtin} placeholder="7680…" keyboardType="number-pad" error={errors.gtin} />
-        <TextField label="Pharmacode" value={pharmacode} onChangeText={setPharmacode} placeholder="optional" keyboardType="number-pad" />
-        <TextField label="Notes" value={notes} onChangeText={setNotes} placeholder="optional" multiline />
+        <TextField label={t('medication.gtin')} value={gtin} onChangeText={setGtin} placeholder="7680…" keyboardType="number-pad" error={errors.gtin} />
+        <TextField label={t('medication.pharmacode')} value={pharmacode} onChangeText={setPharmacode} placeholder={t('common.optional')} keyboardType="number-pad" />
+        <TextField label={t('medication.notes')} value={notes} onChangeText={setNotes} placeholder={t('common.optional')} multiline />
       </Card>
 
       <Button title={submitLabel} onPress={submit} loading={saving} />

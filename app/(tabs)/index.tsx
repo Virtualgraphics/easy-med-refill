@@ -9,6 +9,7 @@ import { Body, Button, Card, Muted, Screen, Section } from '@/components/ui';
 import { WelcomeScreen } from '@/components/WelcomeScreen';
 import {
   type DbClient,
+  DEFAULT_PROFILE_NAME,
   getBoolSetting,
   getSupplyOverview,
   listProviders,
@@ -20,6 +21,7 @@ import {
   useDb,
 } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
+import { type MessageKey, useI18n } from '@/lib/i18n';
 import { ensureNotificationPermission, notifySupplyAlert, syncReminders } from '@/lib/notifications';
 import { syncShortages } from '@/lib/shortages';
 import { useProfile } from '@/lib/profile/ProfileContext';
@@ -53,18 +55,19 @@ interface Row {
   forecast: SupplyForecast;
 }
 
-const GROUPS: { key: string; title: string; statuses: SupplyStatus[]; empty?: string }[] = [
-  { key: 'now', title: 'Act now', statuses: ['out', 'overdue', 'due'], empty: 'Nothing needs action today.' },
-  { key: 'week', title: 'Due this week', statuses: ['due_soon'] },
-  { key: 'ordered', title: 'On order', statuses: ['ordered'] },
-  { key: 'later', title: 'Coming up', statuses: ['ok'] },
-  { key: 'info', title: 'Needs a dose entry', statuses: ['unknown'] },
+const GROUPS: { key: string; title: MessageKey; statuses: SupplyStatus[]; empty?: MessageKey }[] = [
+  { key: 'now', title: 'dashboard.groupActNow', statuses: ['out', 'overdue', 'due'], empty: 'dashboard.emptyActNow' },
+  { key: 'week', title: 'dashboard.groupDueThisWeek', statuses: ['due_soon'] },
+  { key: 'ordered', title: 'dashboard.groupOnOrder', statuses: ['ordered'] },
+  { key: 'later', title: 'dashboard.groupComingUp', statuses: ['ok'] },
+  { key: 'info', title: 'dashboard.groupNeedsDose', statuses: ['unknown'] },
 ];
 
 export default function DashboardScreen() {
   const router = useRouter();
   const db = useDb();
   const { profile, reload: reloadProfile } = useProfile();
+  const { t } = useI18n();
   const { data, loading, error, reload } = useDbQuery((d) => loadDashboard(d, profile.id), [profile.id]);
   const [seeding, setSeeding] = useState(false);
   const [enabling, setEnabling] = useState(false);
@@ -96,7 +99,7 @@ export default function DashboardScreen() {
   const loadDemo = async () => {
     setSeeding(true);
     try {
-      await seedDemoData(db);
+      await seedDemoData(db, profile.id);
       await reloadProfile();
       await reload();
     } finally {
@@ -130,14 +133,14 @@ export default function DashboardScreen() {
   }
 
   const counts = countStatuses(rows.map((r) => r.forecast.status));
-  const greetingName = profile.display_name === 'My medications' ? null : profile.display_name;
+  const greetingName = profile.display_name === DEFAULT_PROFILE_NAME ? null : profile.display_name;
 
   return (
     <Screen scroll>
       <Tabs.Screen options={{ headerShown: true }} />
       {error ? <Body className="text-status-critical">{error.message}</Body> : null}
 
-      <GreetingCard name={greetingName} counts={counts} />
+      <GreetingCard name={greetingName} counts={counts} onPressName={() => router.push('/profile')} />
 
       <ShortageBanner
         matches={data?.shortageMatches ?? []}
@@ -147,9 +150,9 @@ export default function DashboardScreen() {
 
       {!data?.remindersEnabled ? (
         <Card className="gap-3">
-          <Body className="font-semibold">Get a reminder on the day</Body>
-          <Muted>A local notification on the day a reorder or renewal is due. It never includes medication names.</Muted>
-          <Button title="Enable reminders" variant="secondary" onPress={enableReminders} loading={enabling} />
+          <Body className="font-semibold">{t('dashboard.reminderCardTitle')}</Body>
+          <Muted>{t('dashboard.reminderCardBody')}</Muted>
+          <Button title={t('dashboard.enableReminders')} variant="secondary" onPress={enableReminders} loading={enabling} />
         </Card>
       ) : null}
 
@@ -157,10 +160,10 @@ export default function DashboardScreen() {
         const items = rows.filter((r) => group.statuses.includes(r.forecast.status));
         if (items.length === 0 && !group.empty) return null;
         return (
-          <Section key={group.key} title={group.title}>
+          <Section key={group.key} title={t(group.title)}>
             {items.length === 0 ? (
               <Card>
-                <Muted>{group.empty}</Muted>
+                <Muted>{group.empty ? t(group.empty) : ''}</Muted>
               </Card>
             ) : (
               <View className="gap-2">

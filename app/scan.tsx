@@ -5,6 +5,7 @@ import { Alert, Text, View } from 'react-native';
 
 import { Body, Button, Muted, Screen } from '@/components/ui';
 import { findMedicationByGtin, useDb } from '@/lib/db';
+import { useI18n } from '@/lib/i18n';
 import { useProfile } from '@/lib/profile/ProfileContext';
 import { EmediplanParseError, isChTransmissionFormat, looksLikeGs1, parseEmediplan, parseGs1, setPendingImport, toImportCandidates } from '@/lib/scan';
 
@@ -15,6 +16,7 @@ export default function ScanScreen() {
   const router = useRouter();
   const db = useDb();
   const { profile } = useProfile();
+  const { t } = useI18n();
   const [permission, requestPermission] = useCameraPermissions();
   const [busy, setBusy] = useState(false);
   const handled = useRef(false);
@@ -33,12 +35,12 @@ export default function ScanScreen() {
       try {
         if (isChTransmissionFormat(data)) {
           if (mode === 'pack') {
-            Alert.alert('That is a medication plan', 'Scan the DataMatrix on the pack instead.', [{ text: 'OK', onPress: rearm }]);
+            Alert.alert(t('scan.planNotPackTitle'), t('scan.planNotPackBody'), [{ text: t('common.ok'), onPress: rearm }]);
             return;
           }
           const doc = parseEmediplan(data);
           if (doc.medicaments.length === 0) {
-            Alert.alert('Empty plan', 'This eMediplan contains no medications.', [{ text: 'OK', onPress: rearm }]);
+            Alert.alert(t('scan.emptyPlanTitle'), t('scan.emptyPlanBody'), [{ text: t('common.ok'), onPress: rearm }]);
             return;
           }
           const candidates = toImportCandidates(doc);
@@ -46,8 +48,12 @@ export default function ScanScreen() {
           setPendingImport({
             source: 'emediplan',
             candidates,
-            summary: `${doc.medType === 3 ? 'Prescription' : 'Medication plan'} · ${candidates.length} ${candidates.length === 1 ? 'entry' : 'entries'}`,
-            patientLine: patient ? `For ${patient}${doc.patient.birthDate ? `, born ${doc.patient.birthDate}` : ''}.` : null,
+            summary: `${doc.medType === 3 ? t('scan.prescriptionSummary') : t('scan.planSummary')} · ${t('scan.entries', { count: candidates.length })}`,
+            patientLine: patient
+              ? doc.patient.birthDate
+                ? t('scan.forPatientBorn', { patient, date: doc.patient.birthDate })
+                : t('scan.forPatient', { patient })
+              : null,
             warning: null,
           });
           router.replace('/import');
@@ -57,7 +63,7 @@ export default function ScanScreen() {
         if (looksLikeGs1(data)) {
           const pack = parseGs1(data);
           if (!pack.gtin) {
-            Alert.alert('Code not readable', 'The pack code has no valid GTIN.', [{ text: 'Scan again', onPress: rearm }]);
+            Alert.alert(t('scan.codeNotReadableTitle'), t('scan.codeNotReadableBody'), [{ text: t('scan.scanAgain'), onPress: rearm }]);
             return;
           }
           const packParams = { gtin: pack.gtin, batch: pack.batch ?? '', expiry: pack.expiry ?? '' };
@@ -70,22 +76,20 @@ export default function ScanScreen() {
             router.replace({ pathname: '/medication/[id]/pack', params: { id: existing.id, ...packParams } });
             return;
           }
-          Alert.alert('New medication', `No medication with GTIN ${pack.gtin} yet. Add it now?`, [
-            { text: 'Cancel', style: 'cancel', onPress: rearm },
-            { text: 'Add', onPress: () => router.replace({ pathname: '/medication/new', params: { gtin: pack.gtin ?? '' } }) },
+          Alert.alert(t('scan.newMedicationTitle'), t('scan.newMedicationBody', { gtin: pack.gtin }), [
+            { text: t('common.cancel'), style: 'cancel', onPress: rearm },
+            { text: t('common.add'), onPress: () => router.replace({ pathname: '/medication/new', params: { gtin: pack.gtin ?? '' } }) },
           ]);
           return;
         }
 
-        Alert.alert('Unknown code', 'Point the camera at an eMediplan QR code or the DataMatrix on a medicine pack.', [
-          { text: 'Scan again', onPress: rearm },
-        ]);
+        Alert.alert(t('scan.unknownCodeTitle'), t('scan.unknownCodeBody'), [{ text: t('scan.scanAgain'), onPress: rearm }]);
       } catch (e) {
-        const message = e instanceof EmediplanParseError ? e.message : 'The code could not be read.';
-        Alert.alert('Could not read code', message, [{ text: 'Scan again', onPress: rearm }]);
+        const message = e instanceof EmediplanParseError ? e.message : t('scan.codeUnreadable');
+        Alert.alert(t('scan.couldNotReadCode'), message, [{ text: t('scan.scanAgain'), onPress: rearm }]);
       }
     },
-    [db, medicationId, mode, profile.id, router],
+    [db, medicationId, mode, profile.id, router, t],
   );
 
   if (!permission) {
@@ -95,12 +99,12 @@ export default function ScanScreen() {
   if (!permission.granted) {
     return (
       <Screen>
-        <Stack.Screen options={{ title: 'Scan' }} />
+        <Stack.Screen options={{ title: t('scan.scan') }} />
         <View className="flex-1 items-center justify-center gap-4 px-6">
-          <Body className="text-center font-semibold">Camera access is needed to scan codes.</Body>
-          <Muted className="text-center">The camera is used only while this screen is open. Nothing is uploaded.</Muted>
-          <Button title="Allow camera" onPress={() => requestPermission()} />
-          {!permission.canAskAgain ? <Muted className="text-center">Enable the camera for Easy MedRefill in the system settings.</Muted> : null}
+          <Body className="text-center font-semibold">{t('scan.cameraNeeded')}</Body>
+          <Muted className="text-center">{t('scan.cameraOnlyHere')}</Muted>
+          <Button title={t('scan.allowCamera')} onPress={() => requestPermission()} />
+          {!permission.canAskAgain ? <Muted className="text-center">{t('scan.enableCameraSettings')}</Muted> : null}
         </View>
       </Screen>
     );
@@ -108,7 +112,7 @@ export default function ScanScreen() {
 
   return (
     <View className="flex-1 bg-black">
-      <Stack.Screen options={{ title: mode === 'pack' ? 'Scan pack' : 'Scan' }} />
+      <Stack.Screen options={{ title: mode === 'pack' ? t('scan.scanPack') : t('scan.scan') }} />
       <CameraView
         style={{ flex: 1 }}
         facing="back"
@@ -116,14 +120,10 @@ export default function ScanScreen() {
         onBarcodeScanned={busy ? undefined : onScanned}
       />
       <View className="absolute inset-x-0 bottom-0 gap-3 bg-black/70 p-5 pb-8">
-        <Text className="text-center text-base font-semibold text-white">
-          {mode === 'pack' ? 'Point at the DataMatrix on the pack' : 'eMediplan QR code or the DataMatrix on a pack'}
-        </Text>
-        <Text className="text-center text-sm text-neutral-300">
-          {busy ? 'Reading…' : 'Hold steady; the code is read automatically.'}
-        </Text>
-        {mode !== 'pack' ? <Button title="Paper list without a code? Photograph it" variant="ghost" onPress={() => router.replace('/photo-import')} /> : null}
-        <Button title="Cancel" variant="secondary" onPress={() => router.back()} />
+        <Text className="text-center text-base font-semibold text-white">{mode === 'pack' ? t('scan.pointAtPack') : t('scan.pointAtAny')}</Text>
+        <Text className="text-center text-sm text-neutral-300">{busy ? t('scan.reading') : t('scan.holdSteady')}</Text>
+        {mode !== 'pack' ? <Button title={t('scan.paperListPrompt')} variant="ghost" onPress={() => router.replace('/photo-import')} /> : null}
+        <Button title={t('common.cancel')} variant="secondary" onPress={() => router.back()} />
       </View>
     </View>
   );

@@ -26,8 +26,19 @@ import {
   useDb,
 } from '@/lib/db';
 import { useDbQuery } from '@/lib/hooks/useDbQuery';
+import { useI18n } from '@/lib/i18n';
 import { useProfile } from '@/lib/profile/ProfileContext';
 import { buildReorderPayload, requestReference } from '@/lib/reorder';
+
+const STATUS_KEY = {
+  draft: 'orders.statusDraft',
+  approved: 'orders.statusApproved',
+  sent: 'orders.statusSent',
+  confirmed: 'orders.statusConfirmed',
+  received: 'orders.statusReceived',
+  overdue: 'orders.statusOverdue',
+  cancelled: 'orders.statusCancelled',
+} as const;
 
 async function loadOrder(db: DbClient, batchId: string) {
   const batch = await getReorderBatch(db, batchId);
@@ -40,6 +51,7 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const db = useDb();
+  const { t } = useI18n();
   const { profile } = useProfile();
   const { data, loading, reload } = useDbQuery((d) => loadOrder(d, id), [id]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -47,7 +59,7 @@ export default function OrderDetailScreen() {
   if (!data) {
     return (
       <Screen>
-        <View className="flex-1 items-center justify-center">{loading ? <ActivityIndicator color="#0B5CAB" /> : <Muted>Order not found.</Muted>}</View>
+        <View className="flex-1 items-center justify-center">{loading ? <ActivityIndicator color="#0B5CAB" /> : <Muted>{t('orders.orderNotFound')}</Muted>}</View>
       </Screen>
     );
   }
@@ -61,7 +73,7 @@ export default function OrderDetailScreen() {
       await fn();
       await reload();
     } catch (e) {
-      Alert.alert('Could not update', e instanceof Error ? e.message : 'Unknown error');
+      Alert.alert(t('common.couldNotUpdate'), e instanceof Error ? e.message : t('common.unknownError'));
     } finally {
       setBusy(null);
     }
@@ -69,10 +81,10 @@ export default function OrderDetailScreen() {
 
   const sendNow = () =>
     act('send', async () => {
-      if (!provider) throw new Error('The supplier is missing.');
+      if (!provider) throw new Error(t('orders.supplierMissing'));
       const items = batch.items.map((request) => {
         const medication = medicationFor(request);
-        if (!medication) throw new Error('A medication in this order no longer exists.');
+        if (!medication) throw new Error(t('orders.medicationMissing'));
         return { request, medication };
       });
       try {
@@ -82,7 +94,7 @@ export default function OrderDetailScreen() {
           expected_by: addDays(todayIso(), Math.round(effectiveLeadTimeDays(provider))),
         });
       } catch (e) {
-        throw new Error(e instanceof ApiError ? e.message : 'The server could not be reached.');
+        throw new Error(e instanceof ApiError ? e.message : t('orders.serverUnreachable'));
       }
     });
 
@@ -96,34 +108,34 @@ export default function OrderDetailScreen() {
     });
 
   const cancelOne = (item: ReorderRequestListItem) =>
-    Alert.alert(`Remove ${item.medication_name}?`, 'The supplier is not notified automatically.', [
-      { text: 'Keep', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => act(`cancel-${item.id}`, () => cancelReorderRequest(db, item.id).then(() => undefined)) },
+    Alert.alert(t('orders.removeItemTitle', { name: item.medication_name }), t('orders.supplierNotNotified'), [
+      { text: t('common.keep'), style: 'cancel' },
+      { text: t('common.remove'), style: 'destructive', onPress: () => act(`cancel-${item.id}`, () => cancelReorderRequest(db, item.id).then(() => undefined)) },
     ]);
 
   const followUp = () =>
     act('followup', async () => {
       await recordBatchFollowUp(db, batch.batch_id);
-      Alert.alert('Follow-up noted', 'Automatic follow-up emails are sent by the server once it is connected. The count is tracked here.');
+      Alert.alert(t('orders.followUpNoted'), t('orders.followUpNotedBody'));
     });
 
   const cancel = () =>
-    Alert.alert('Cancel this order?', 'Every medication in it is cancelled. The practice or pharmacy is not notified automatically.', [
-      { text: 'Keep', style: 'cancel' },
-      { text: 'Cancel order', style: 'destructive', onPress: () => act('cancel', () => cancelReorderBatch(db, batch.batch_id)) },
+    Alert.alert(t('orders.cancelOrderTitle'), t('orders.cancelOrderBody'), [
+      { text: t('common.keep'), style: 'cancel' },
+      { text: t('orders.cancelOrder'), style: 'destructive', onPress: () => act('cancel', () => cancelReorderBatch(db, batch.batch_id)) },
     ]);
 
   const addPacks = (item: ReorderRequestListItem) =>
     router.push({ pathname: '/medication/[id]/pack', params: { id: item.medication_id, gtin: medicationFor(item)?.gtin ?? '' } });
 
   const timeline: { label: string; at: string | null }[] = [
-    { label: 'Created', at: batch.created_at },
-    { label: 'Approved', at: batch.approved_at },
-    { label: 'Sent', at: batch.sent_at },
-    { label: 'Confirmed', at: batch.confirmed_at },
-    { label: 'Marked overdue', at: batch.overdue_at },
-    { label: 'Received', at: batch.received_at },
-    { label: 'Cancelled', at: batch.cancelled_at },
+    { label: t('orders.tlCreated'), at: batch.created_at },
+    { label: t('orders.tlApproved'), at: batch.approved_at },
+    { label: t('orders.tlSent'), at: batch.sent_at },
+    { label: t('orders.tlConfirmed'), at: batch.confirmed_at },
+    { label: t('orders.tlOverdue'), at: batch.overdue_at },
+    { label: t('orders.tlReceived'), at: batch.received_at },
+    { label: t('orders.tlCancelled'), at: batch.cancelled_at },
   ];
 
   const open = ACTIVE_REORDER_STATUSES.includes(batch.status) && batch.status !== 'draft';
@@ -134,27 +146,27 @@ export default function OrderDetailScreen() {
 
   return (
     <Screen scroll>
-      <Stack.Screen options={{ title: count === 1 ? batch.items[0].medication_name : `Order · ${count} medications` }} />
+      <Stack.Screen options={{ title: count === 1 ? batch.items[0].medication_name : t('orders.orderTitle', { medications: t('common.medications', { count }) }) }} />
 
       <Card className="gap-3">
         <View className="flex-row items-start justify-between gap-3">
           <View className="flex-1 gap-0.5">
             <Body className="font-semibold">
-              {count} {count === 1 ? 'medication' : 'medications'} · {packs} {packs === 1 ? 'pack' : 'packs'} from {batch.provider_name}
+              {t('orders.headline', { medications: t('common.medications', { count }), packs: t('common.packs', { count: packs }), provider: batch.provider_name })}
             </Body>
             <Muted>
-              Reference {requestReference(batch.batch_id)}
-              {batch.server_reference ? ` · server ${batch.server_reference}` : ''}
+              {t('orders.reference', { ref: requestReference(batch.batch_id) })}
+              {batch.server_reference ? t('orders.serverReference', { ref: batch.server_reference }) : ''}
             </Muted>
-            {batch.needed_by ? <Muted>Needed by {formatDate(batch.needed_by)}</Muted> : null}
-            {batch.expected_by ? <Muted>Expected by {formatDate(batch.expected_by)}</Muted> : null}
+            {batch.needed_by ? <Muted>{t('orders.neededBy', { date: formatDate(batch.needed_by) })}</Muted> : null}
+            {batch.expected_by ? <Muted>{t('orders.expectedBy', { date: formatDate(batch.expected_by) })}</Muted> : null}
           </View>
           <OrderStatusBadge status={batch.status} />
         </View>
-        {isStubMode() && batch.status !== 'draft' ? <Muted>No server configured: the order is tracked on this phone only, no email was sent.</Muted> : null}
+        {isStubMode() && batch.status !== 'draft' ? <Muted>{t('orders.stubNote')}</Muted> : null}
       </Card>
 
-      <Section title="Medications">
+      <Section title={t('orders.medications')}>
         <View className="overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
           {batch.items.map((item, index) => {
             const itemOpen = ACTIVE_REORDER_STATUSES.includes(item.status);
@@ -164,16 +176,16 @@ export default function OrderDetailScreen() {
                 <View className="flex-1 gap-0.5">
                   <Body className={`font-semibold ${item.status === 'cancelled' ? 'line-through text-neutral-400' : ''}`}>{item.medication_name}</Body>
                   <Muted>
-                    {item.quantity_packs} {item.quantity_packs === 1 ? 'pack' : 'packs'}
-                    {differs ? ` · ${item.status}` : ''}
+                    {t('common.packs', { count: item.quantity_packs })}
+                    {differs ? ` · ${t(STATUS_KEY[item.status])}` : ''}
                   </Muted>
                 </View>
                 {item.status === 'received' ? (
-                  <LinkButton label="Add packs" onPress={() => addPacks(item)} />
+                  <LinkButton label={t('orders.addPacks')} onPress={() => addPacks(item)} />
                 ) : deliverable && itemOpen && openItems.length > 1 ? (
-                  <LinkButton label="Received" onPress={() => receivedOne(item)} busy={busy === `received-${item.id}`} />
+                  <LinkButton label={t('orders.received')} onPress={() => receivedOne(item)} busy={busy === `received-${item.id}`} />
                 ) : null}
-                {itemOpen && openItems.length > 1 && !deliverable ? <LinkButton label="Remove" onPress={() => cancelOne(item)} tone="muted" /> : null}
+                {itemOpen && openItems.length > 1 && !deliverable ? <LinkButton label={t('common.remove')} onPress={() => cancelOne(item)} tone="muted" /> : null}
               </View>
             );
           })}
@@ -181,22 +193,22 @@ export default function OrderDetailScreen() {
       </Section>
 
       {open ? (
-        <Section title="Update">
+        <Section title={t('orders.update')}>
           <View className="gap-2">
-            {batch.status === 'approved' ? <Button title="Send now" onPress={sendNow} loading={busy === 'send'} /> : null}
+            {batch.status === 'approved' ? <Button title={t('orders.sendNow')} onPress={sendNow} loading={busy === 'send'} /> : null}
             {batch.status === 'sent' || batch.status === 'overdue' ? (
-              <Button title="Practice confirmed" variant="secondary" onPress={confirm} loading={busy === 'confirm'} />
+              <Button title={t('orders.practiceConfirmed')} variant="secondary" onPress={confirm} loading={busy === 'confirm'} />
             ) : null}
-            {batch.status === 'overdue' ? <Button title="Log a follow-up" variant="secondary" onPress={followUp} loading={busy === 'followup'} /> : null}
+            {batch.status === 'overdue' ? <Button title={t('orders.logFollowUp')} variant="secondary" onPress={followUp} loading={busy === 'followup'} /> : null}
             {deliverable ? (
-              <Button title={openItems.length > 1 ? 'Received everything' : 'Received the delivery'} onPress={receivedAll} loading={busy === 'received'} />
+              <Button title={openItems.length > 1 ? t('orders.receivedEverything') : t('orders.receivedDelivery')} onPress={receivedAll} loading={busy === 'received'} />
             ) : null}
-            <Button title="Cancel order" variant="ghost" onPress={cancel} loading={busy === 'cancel'} />
+            <Button title={t('orders.cancelOrder')} variant="ghost" onPress={cancel} loading={busy === 'cancel'} />
           </View>
         </Section>
       ) : null}
 
-      <Section title="Timeline">
+      <Section title={t('orders.timeline')}>
         <Card className="gap-2">
           {timeline
             .filter((t) => t.at)
@@ -208,7 +220,7 @@ export default function OrderDetailScreen() {
             ))}
           {batch.follow_up_count > 0 ? (
             <View className="flex-row justify-between">
-              <Body>Follow-ups</Body>
+              <Body>{t('orders.followUpsLabel')}</Body>
               <Muted>{batch.follow_up_count}</Muted>
             </View>
           ) : null}
@@ -216,7 +228,7 @@ export default function OrderDetailScreen() {
       </Section>
 
       {batch.message_body ? (
-        <Section title="Message">
+        <Section title={t('orders.message')}>
           <Card className="gap-2">
             <Body className="font-semibold">{batch.message_subject}</Body>
             <Text className="font-mono text-xs leading-5 text-neutral-800 dark:text-neutral-200">{batch.message_body}</Text>

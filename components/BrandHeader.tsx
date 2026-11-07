@@ -2,6 +2,8 @@ import Feather from '@expo/vector-icons/Feather';
 import type { NativeStackHeaderProps } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
+
+import { useI18n } from '@/lib/i18n';
 import { Image, Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -30,6 +32,7 @@ export function BrandHeaderTitle({ children }: { children?: React.ReactNode }) {
  * gradient, logo, title; plus the back arrow and any headerRight.
  */
 export function BrandStackHeader({ navigation, options, route, back }: NativeStackHeaderProps) {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const title = typeof options.title === 'string' ? options.title : route.name;
   const right = options.headerRight?.({ tintColor: '#fff', canGoBack: Boolean(back) });
@@ -42,7 +45,7 @@ export function BrandStackHeader({ navigation, options, route, back }: NativeSta
       style={{ paddingTop: insets.top, height: insets.top + (Platform.OS === 'ios' ? 44 : 56) }}>
       <View className="flex-1 flex-row items-center px-2">
         {back ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => navigation.goBack()} hitSlop={10} className="h-10 w-10 items-center justify-center">
+          <Pressable accessibilityRole="button" accessibilityLabel={t('common.back')} onPress={() => navigation.goBack()} hitSlop={10} className="h-10 w-10 items-center justify-center">
             <Feather name="arrow-left" size={24} color="#fff" />
           </Pressable>
         ) : (

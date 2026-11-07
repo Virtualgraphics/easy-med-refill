@@ -203,3 +203,47 @@ describe('schema v1', () => {
     expect(() => insert.run('s2', NOW)).toThrow(/UNIQUE/);
   });
 });
+
+describe('v5 reorder language rebuild', () => {
+  /** Migrates up to a given version only. */
+  function openAt(version: number): DatabaseSync {
+    const db = new DatabaseSync(':memory:');
+    db.exec('PRAGMA foreign_keys = ON;');
+    for (const m of migrations.filter((x) => x.version <= version)) {
+      db.exec('BEGIN;');
+      db.exec(m.sql);
+      db.exec(`PRAGMA user_version = ${m.version};`);
+      db.exec('COMMIT;');
+    }
+    return db;
+  }
+
+  it('keeps existing orders, their batch ids and indexes, and then accepts fr and it', () => {
+    const db = openAt(4);
+    seedProfileAndProvider(db);
+    seedMedication(db);
+    db.prepare(
+      `INSERT INTO reorder_requests (id, batch_id, medication_id, provider_id, status, quantity_packs, needed_by, language, message_subject, note, created_at, updated_at)
+       VALUES ('r1', 'b1', 'm1', 'prov1', 'sent', 2, '2026-11-10', 'de', 'Nachbestellung', 'bitte', ?, ?)`,
+    ).run(NOW, NOW);
+    expect(() => db.prepare(`UPDATE reorder_requests SET language = 'fr' WHERE id = 'r1'`).run()).toThrow();
+
+    for (const m of pendingMigrations(4)) {
+      db.exec('BEGIN;');
+      db.exec(m.sql);
+      db.exec(`PRAGMA user_version = ${m.version};`);
+      db.exec('COMMIT;');
+    }
+
+    const row = db.prepare('SELECT * FROM reorder_requests WHERE id = ?').get('r1') as Record<string, unknown>;
+    expect(row).toMatchObject({ batch_id: 'b1', medication_id: 'm1', status: 'sent', quantity_packs: 2, language: 'de', message_subject: 'Nachbestellung', note: 'bitte' });
+    expect(db.prepare(`PRAGMA foreign_key_check;`).all()).toEqual([]);
+    const indexes = (db.prepare(`PRAGMA index_list('reorder_requests');`).all() as { name: string }[]).map((i) => i.name);
+    expect(indexes).toEqual(expect.arrayContaining(['idx_reorder_requests_medication', 'idx_reorder_requests_status', 'idx_reorder_requests_batch']));
+    expect(() => db.prepare(`UPDATE reorder_requests SET language = 'fr' WHERE id = 'r1'`).run()).not.toThrow();
+    expect(() => db.prepare(`UPDATE reorder_requests SET language = 'xx' WHERE id = 'r1'`).run()).toThrow();
+    // Deleting the medication still cascades to the rebuilt table.
+    db.prepare(`DELETE FROM medications WHERE id = 'm1'`).run();
+    expect(db.prepare('SELECT COUNT(*) AS n FROM reorder_requests').get()).toEqual({ n: 0 });
+  });
+});

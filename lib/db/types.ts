@@ -24,7 +24,7 @@ export type ReorderStatus =
   | 'overdue'
   | 'cancelled';
 export type ShortageSource = 'drugshortage_ch' | 'bwl' | 'simulated';
-export type ReorderLanguage = 'de' | 'en';
+export type ReorderLanguage = 'de' | 'en' | 'fr' | 'it';
 
 export interface ProfileRow {
   id: string;

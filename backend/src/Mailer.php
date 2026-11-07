@@ -27,11 +27,14 @@ final class Mailer
     /** @param array<string, mixed> $request */
     public function sendFollowUp(array $request): void
     {
-        $de = $request['language'] === 'de';
-        $subject = ($de ? 'Erinnerung: ' : 'Reminder: ') . $request['message_subject'];
-        $intro = $de
-            ? "Guten Tag\n\nZu der folgenden Anfrage haben wir noch keine Bestätigung erhalten. Falls sie bereits bearbeitet wurde, genügt ein Klick auf den Bestätigungslink.\n\n----------\n\n"
-            : "Dear team\n\nWe have not yet received a confirmation for the request below. If it has already been handled, one click on the confirmation link is enough.\n\n----------\n\n";
+        $texts = [
+            'de' => ['Erinnerung: ', "Guten Tag\n\nZu der folgenden Anfrage haben wir noch keine Bestätigung erhalten. Falls sie bereits bearbeitet wurde, genügt ein Klick auf den Bestätigungslink.\n\n----------\n\n"],
+            'en' => ['Reminder: ', "Dear team\n\nWe have not yet received a confirmation for the request below. If it has already been handled, one click on the confirmation link is enough.\n\n----------\n\n"],
+            'fr' => ['Rappel : ', "Bonjour\n\nNous n'avons pas encore reçu de confirmation pour la demande ci-dessous. Si elle a déjà été traitée, un clic sur le lien de confirmation suffit.\n\n----------\n\n"],
+            'it' => ['Promemoria: ', "Buongiorno\n\nNon abbiamo ancora ricevuto una conferma per la richiesta qui sotto. Se è già stata evasa, basta un clic sul link di conferma.\n\n----------\n\n"],
+        ];
+        [$prefix, $intro] = $texts[(string) $request['language']] ?? $texts['en'];
+        $subject = $prefix . $request['message_subject'];
         $this->send(
             (string) $request['provider_email'],
             $subject,
@@ -42,9 +45,13 @@ final class Mailer
     private function withConfirmBlock(string $body, string $token, string $language): string
     {
         $url = rtrim((string) $this->config->get('base_url'), '/') . '/p/' . $token;
-        $block = $language === 'de'
-            ? "Bestätigung mit einem Klick (kein Login nötig):\n$url"
-            : "Confirm with one click (no login needed):\n$url";
+        $blocks = [
+            'de' => "Bestätigung mit einem Klick (kein Login nötig):\n$url",
+            'en' => "Confirm with one click (no login needed):\n$url",
+            'fr' => "Confirmation en un clic (sans connexion) :\n$url",
+            'it' => "Conferma con un clic (senza login):\n$url",
+        ];
+        $block = $blocks[$language] ?? $blocks['en'];
         return rtrim($body) . "\n\n" . $block . "\n";
     }
 

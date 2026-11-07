@@ -1,13 +1,15 @@
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 
 import { Button, Card, Screen, Segmented, TextField } from '@/components/ui';
 import { createProvider, DEFAULT_LEAD_TIME_DAYS, parseNumber, type ProviderKind, useDb } from '@/lib/db';
+import { useI18n } from '@/lib/i18n';
 import { useProfile } from '@/lib/profile/ProfileContext';
 
 export default function NewProviderScreen() {
   const router = useRouter();
   const db = useDb();
+  const { t } = useI18n();
   const { profile } = useProfile();
 
   const [kind, setKind] = useState<ProviderKind>('practice');
@@ -22,9 +24,9 @@ export default function NewProviderScreen() {
   const submit = async () => {
     const lead = parseNumber(leadTime);
     const next: typeof errors = {};
-    if (name.trim() === '') next.name = 'Name is required';
-    if (email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) next.email = 'Enter a valid email address';
-    if (lead === null || lead < 0 || !Number.isInteger(lead)) next.leadTime = 'Whole number of days';
+    if (name.trim() === '') next.name = t('orders.nameRequired');
+    if (email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) next.email = t('orders.emailInvalid');
+    if (lead === null || lead < 0 || !Number.isInteger(lead)) next.leadTime = t('orders.leadTimeWhole');
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
@@ -47,30 +49,39 @@ export default function NewProviderScreen() {
 
   return (
     <Screen scroll>
+      <Stack.Screen options={{ title: t('common.titleNewSupplier') }} />
       <Card className="gap-4">
         <Segmented
-          label="Type"
+          label={t('orders.type')}
           options={[
-            { value: 'practice', label: 'Practice' },
-            { value: 'pharmacy', label: 'Pharmacy' },
+            { value: 'practice', label: t('common.practice') },
+            { value: 'pharmacy', label: t('common.pharmacy') },
           ]}
           value={kind}
           onChange={setKind}
         />
-        <TextField label="Name" value={name} onChangeText={setName} placeholder="e.g. Hausarztpraxis Muster" error={errors.name} autoFocus />
-        <TextField label="Email" value={email} onChangeText={setEmail} placeholder="Reorder requests are sent here" keyboardType="email-address" autoCapitalize="none" error={errors.email} />
-        <TextField label="Phone" value={phone} onChangeText={setPhone} placeholder="optional" keyboardType="phone-pad" />
-        <TextField label="Address" value={address} onChangeText={setAddress} placeholder="optional" multiline />
+        <TextField label={t('orders.name')} value={name} onChangeText={setName} placeholder={t('orders.namePlaceholder')} error={errors.name} autoFocus />
         <TextField
-          label="Typical lead time (days)"
+          label={t('orders.email')}
+          value={email}
+          onChangeText={setEmail}
+          placeholder={t('orders.emailPlaceholder')}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          error={errors.email}
+        />
+        <TextField label={t('orders.phone')} value={phone} onChangeText={setPhone} placeholder={t('common.optional')} keyboardType="phone-pad" />
+        <TextField label={t('orders.address')} value={address} onChangeText={setAddress} placeholder={t('common.optional')} multiline />
+        <TextField
+          label={t('orders.leadTime')}
           value={leadTime}
           onChangeText={setLeadTime}
           keyboardType="number-pad"
-          helper="How long a reorder usually takes. The app refines this from real orders."
+          helper={t('orders.leadTimeHelper')}
           error={errors.leadTime}
         />
       </Card>
-      <Button title="Add supplier" onPress={submit} loading={saving} />
+      <Button title={t('orders.addSupplier')} onPress={submit} loading={saving} />
     </Screen>
   );
 }

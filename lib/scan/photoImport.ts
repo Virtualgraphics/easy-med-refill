@@ -3,6 +3,7 @@
  * candidates the eMediplan scan produces, so one review screen serves both.
  */
 import type { ExtractedMedication, ExtractedPlan } from '../api/client';
+import { t } from '../i18n/translate';
 import { doseFromDailyPattern, type ImportCandidate, summariseDose } from './emediplan';
 
 export function extractedToCandidates(plan: ExtractedPlan): ImportCandidate[] {
@@ -20,11 +21,11 @@ function candidateFromExtracted(m: ExtractedMedication, index: number): ImportCa
   const notes = [m.reason, m.intake_note].filter(Boolean).join(' · ') || null;
   return {
     key: `photo:${index}:${name}`,
-    suggestedName: name || `Medication ${index + 1}`,
+    suggestedName: name || t('scan.medicationN', { n: index + 1 }),
     gtin: null,
     pharmacode: null,
     notes,
     dose,
-    doseSummary: dose ? summariseDose(dose, null) : m.as_needed ? 'As needed, no fixed dose' : 'No dose on the list',
+    doseSummary: dose ? summariseDose(dose, null) : m.as_needed ? t('scan.asNeededNoDose') : t('scan.noDoseOnList'),
   };
 }
